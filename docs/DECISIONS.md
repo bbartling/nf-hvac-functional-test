@@ -52,7 +52,7 @@ Indexed components `equipment_id`, `role`, `source_uuid`. No protocol driver. Sh
 
 ## D13. Coverage floor
 
-`scripts/check-coverage.js` requires 90 percent line coverage on the config, role, model, and plan modules, and on the safety modules in section 9.5 once those files exist. The coverage run does not pass `--test-coverage-include`; Node 20 rejects that flag. Files under test are loaded by the test suite, and a required file with no line data fails the check.
+`scripts/check-coverage.js` requires 90 percent line coverage on the config, role, model, and plan modules, and on the safety modules in section 9.5 once those files exist. The coverage run does not pass `--test-coverage-include`; Node 20 rejects that flag. The script expands `test/*.test.js` itself because Node 20 does not expand that glob. Files under test are loaded by the test suite, and a required file with no line data fails the check.
 
 ## D14. Forbidden-identifier scan
 

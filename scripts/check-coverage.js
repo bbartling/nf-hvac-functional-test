@@ -70,6 +70,13 @@ function normalize(file) {
   return path.relative(ROOT, abs).split(path.sep).join('/');
 }
 
+function testFiles() {
+  return fs.readdirSync(path.join(ROOT, 'test'))
+    .filter((name) => name.endsWith('.test.js'))
+    .sort()
+    .map((name) => `test/${name}`);
+}
+
 function main() {
   fs.mkdirSync(path.dirname(LCOV), { recursive: true });
   const args = [
@@ -79,7 +86,7 @@ function main() {
     '--test-reporter=lcov',
     '--test-reporter-destination=stdout',
     '--test-reporter-destination=coverage/lcov.info',
-    'test/*.test.js',
+    ...testFiles(),
   ];
   const child = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
   if (child.status !== 0) process.exit(child.status || 1);
