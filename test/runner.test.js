@@ -560,6 +560,69 @@ test('two hundred random faults leave no override behind', async () => {
   }
 });
 
+test('a 20 minute recirc hold completes inside a 5 minute lease', async () => {
+  const { clock, fake, runner } = await world({
+    config: {
+      write: { command_lease_s: 300, keepalive_s: 60, release_retries: 1, release_backoff_s: [1, 1] },
+      plan: {
+        steps: [
+          { step_id: 'ahu.baseline', hold_minutes: 0 },
+          { step_id: 'ahu.recirc', hold_minutes: 20 },
+          { step_id: 'ahu.economizer', enabled: false },
+          { step_id: 'vav.max_cool', enabled: false },
+          { step_id: 'recovery', hold_minutes: 0 },
+        ],
+      },
+      limits: { max_total_minutes: 40, max_tick_gap_s: 30, max_comm_failures: 3 },
+    },
+  });
+  try {
+    await runner.start('run_hold');
+    const terminal = new Set(['COMPLETE', 'ABORTED', 'FAILED', 'NEEDS_ATTENTION']);
+    for (let i = 0; i < 200 && !terminal.has(runner.state.phase); i += 1) {
+      clock.advance(10 * 1000);
+      await runner.tick();
+    }
+    assert.equal(runner.state.phase, 'COMPLETE');
+    assert.equal(runner.state.reason, 'complete');
+    assert.ok(runner.lastExtendAt !== null && runner.lastExtendAt > 0);
+  } finally {
+    await fake.close();
+  }
+});
+
+test('stopping keepalive lets the lease revert the override', async () => {
+  const { clock, fake, runner, client, model } = await world({
+    config: {
+      write: { command_lease_s: 120, keepalive_s: 30, release_retries: 1, release_backoff_s: [1, 1] },
+      plan: {
+        steps: [
+          { step_id: 'ahu.baseline', hold_minutes: 0 },
+          { step_id: 'ahu.recirc', hold_minutes: 20 },
+          { step_id: 'ahu.economizer', enabled: false },
+          { step_id: 'vav.max_cool', enabled: false },
+          { step_id: 'recovery', hold_minutes: 0 },
+        ],
+      },
+      limits: { max_total_minutes: 40, max_tick_gap_s: 1000, max_comm_failures: 3 },
+    },
+  });
+  try {
+    await runner.start('run_expire');
+    for (let i = 0; i < 6; i += 1) {
+      clock.advance(10 * 1000);
+      await runner.tick();
+    }
+    const uuid = model.equipment[0].points.cooling_valve_command.uuid;
+    assert.equal((await client.readPriorityArray({ uuid }))[7], 0);
+    clock.advance(121 * 1000);
+    assert.equal((await client.readPriorityArray({ uuid }))[7], null);
+    assert.equal((await client.listCommands()).commands.length, 0);
+  } finally {
+    await fake.close();
+  }
+});
+
 /**
  * @param {number} seed
  */

@@ -29,6 +29,7 @@ const ALWAYS = [
   'lib/model/index.js',
   'lib/plan.js',
   'lib/nf/client.js',
+  'lib/nf/duration.js',
 ];
 
 const WHEN_PRESENT = [

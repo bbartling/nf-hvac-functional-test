@@ -162,7 +162,7 @@ test('recovery releases an intent with no result and cancels an orphan ftest com
     const started = writer.commands.get('ftest-run_a-ahu_a');
     assert.ok(started);
     await client.cancelCommand(started.id);
-    const orphan = await client.startCommand({ name: 'ftest-run_b-ahu_a', duration_s: 120 });
+    const orphan = await client.startCommand({ name: 'ftest-run_b-ahu_a', duration: '120s' });
     await client.writeInCommand({
       command_id: orphan.id,
       writes: [{

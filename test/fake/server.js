@@ -5,6 +5,7 @@ const { DeviceObject } = require('./device');
 const { seedAhu } = require('./ahu');
 const { seedVav } = require('./vav');
 const { VirtualClock } = require('./clock');
+const { parseDurationMs } = require('../../lib/nf/duration');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -132,10 +133,11 @@ function createFake(options = {}) {
    * @param {any} body
    */
   function startCommand(body) {
+    only(body, ['name', 'duration']);
     const name = body.name;
     if (!name) fail(400, 'name_required', 'command name is required');
     if (names.has(name)) fail(409, 'already_exists', `command name in use ${name}`);
-    const durationMs = Math.round(Number(body.duration_s || 0) * 1000);
+    const durationMs = parseDurationMs(body.duration);
     if (!Number.isFinite(durationMs) || durationMs <= 0 || durationMs > DAY_MS) {
       fail(400, 'lifetime', 'command lifetime must be within 24h');
     }
@@ -158,13 +160,16 @@ function createFake(options = {}) {
    * @param {any} body
    */
   function writeCommand(body) {
+    only(body, ['command_id', 'writes', 'cancel_on_conflict']);
     const command = commands.get(Number(body.command_id));
     if (!command || !command.active) fail(404, 'not_found', 'command is not active');
     const writes = [];
     const errors = [];
     for (const write of body.writes || []) {
+      only(write, ['point', 'value', 'priority']);
+      only(write.point || {}, ['uuid', 'layer']);
       const uuid = write.point.uuid;
-      const priority = Number(write.priority ?? write.options?.priority ?? write.bacnet_options?.priority);
+      const priority = Number(write.priority);
       const value = decodeValue(write.value);
       if (body.cancel_on_conflict || write.cancel_on_conflict) {
         const conflict = [...commands.values()].some((other) => other.active && other.id !== command.id
@@ -220,6 +225,7 @@ function createFake(options = {}) {
    * @param {any} body
    */
   function extendCommand(id, body) {
+    only(body, ['new_expiration']);
     const command = commands.get(id);
     if (!command || !command.active) fail(404, 'not_found', 'command is not active');
     const expires = Date.parse(body.new_expiration);
@@ -244,6 +250,7 @@ function createFake(options = {}) {
    * @param {any} body
    */
   function clearCommand(body) {
+    only(body, ['command_id', 'clears']);
     const command = commands.get(Number(body.command_id));
     if (!command || !command.active) fail(404, 'not_found', 'command is not active');
     const cleared = [];
@@ -340,9 +347,11 @@ function createFake(options = {}) {
    * @param {any} body
    */
   function bacnetWrite(body) {
+    only(body, ['writes']);
     const results = [];
     const errors = [];
     for (const write of body.writes || []) {
+      only(write, ['uuid', 'layer', 'priority', 'value']);
       const priority = Number(write.priority);
       const value = write.value === undefined ? null : write.value;
       const result = applyWrite(write.uuid, priority, value, 0);
@@ -421,6 +430,17 @@ function decodeValue(value) {
  * @param {string} code
  * @param {string} message
  */
+/**
+ * @param {any} body
+ * @param {string[]} allowed
+ */
+function only(body, allowed) {
+  const permit = new Set(allowed);
+  for (const key of Object.keys(body || {})) {
+    if (!permit.has(key)) fail(400, 'unknown_field', `unknown field ${key}`);
+  }
+}
+
 function fail(status, code, message) {
   const error = /** @type {Error & { status: number, code: string }} */ (new Error(message));
   error.status = status;

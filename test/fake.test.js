@@ -23,7 +23,6 @@ function writeAt(client, uuid, priority, value, commandId) {
       point: { uuid, layer: LAYER },
       priority,
       value: typeof value === 'number' ? { real: value } : { boolean: value },
-      cancel_on_conflict: true,
     }],
   });
 }
@@ -52,7 +51,7 @@ test('command expiry clears the priority slot and offline expiry becomes a zombi
       oat: 10,
       rat: 22,
     });
-    const started = await client.startCommand({ name: 'ftest-run-a', duration_s: 300 });
+    const started = await client.startCommand({ name: 'ftest-run-a', duration: '300s' });
     const wrote = await writeAt(client, damper, 8, 0, started.id);
     assert.equal(wrote.errors.length, 0);
     let slots = await client.readPriorityArray({ uuid: damper });
@@ -63,7 +62,7 @@ test('command expiry clears the priority slot and offline expiry becomes a zombi
     const listed = await client.listCommands();
     assert.equal(listed.commands.length, 0);
 
-    const again = await client.startCommand({ name: 'ftest-run-b', duration_s: 60 });
+    const again = await client.startCommand({ name: 'ftest-run-b', duration: '60s' });
     await writeAt(client, stuck, 8, 0, again.id);
     fake.points.get(stuck).offline = true;
     clock.advance(61 * 1000);
@@ -108,9 +107,9 @@ test('unique names, guardrails, conflict, and client retries', async () => {
   try {
     const uuid = '00000000-0000-4000-8000-0000000000c1';
     fake.seedAhu({ points: { cooling_valve_command: uuid } });
-    const first = await client.startCommand({ name: 'ftest-lock', duration_s: 120 });
+    const first = await client.startCommand({ name: 'ftest-lock', duration: '120s' });
     await assert.rejects(
-      () => client.startCommand({ name: 'ftest-lock', duration_s: 120 }),
+      () => client.startCommand({ name: 'ftest-lock', duration: '120s' }),
       (error) => error instanceof Error && /** @type {any} */ (error).status === 409,
     );
     const guard = await writeAt(client, uuid, 8, 150, first.id);
@@ -118,7 +117,7 @@ test('unique names, guardrails, conflict, and client retries', async () => {
     assert.equal((await client.readPriorityArray({ uuid }))[7], null);
     await writeAt(client, uuid, 8, 0, first.id);
 
-    const second = await client.startCommand({ name: 'ftest-other', duration_s: 120 });
+    const second = await client.startCommand({ name: 'ftest-other', duration: '120s' });
     const conflict = await writeAt(client, uuid, 8, 5, second.id);
     assert.equal(conflict.errors[0].error.code, 'conflict');
     assert.equal((await client.readPriorityArray({ uuid }))[7], 0);
@@ -215,7 +214,11 @@ test('ahu mix and vav profiles stay plausible', async () => {
     fake.failNext(1, { drop: true });
     const afterDrop = await client.queryPoints({ uuid: ids.outside_air_temperature });
     assert.equal(afterDrop.points.length, 1);
-    await assert.rejects(() => client.startCommand({ name: 'too-long', duration_s: 90000 }));
+    await assert.rejects(
+      () => client.request('/api/v2/command', { method: 'POST', body: { name: 'made-up', duration_s: 30 } }),
+      (error) => error instanceof Error && /** @type {any} */ (error).body.error.code === 'unknown_field',
+    );
+    await assert.rejects(() => client.startCommand({ name: 'too-long', duration: '90000s' }));
   } finally {
     await fake.close();
   }
