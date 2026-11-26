@@ -10,9 +10,9 @@ const READS = {
   discharge_air_temperature: ['discharge', 'air', 'temp', 'sensor'],
   mixed_air_temperature: ['mixed', 'air', 'temp', 'sensor'],
   return_air_temperature: ['return', 'air', 'temp', 'sensor'],
-  outside_air_temperature: ['outside', 'air', 'temp', 'sensor'],
-  duct_static_pressure: ['ductStatic', 'sensor'],
-  supply_fan_run_status: ['supply', 'fan', 'run'],
+  outdoor_air_intake_temperature: ['outside', 'air', 'temp', 'sensor'],
+  discharge_air_static_pressure: ['discharge', 'air', 'pressure', 'sensor'],
+  supply_fan_operating_status: ['fan', 'run', 'sensor'],
 };
 
 /**
@@ -49,7 +49,7 @@ function fleet(spec) {
     n += 1;
   }
   if (spec.freeze) {
-    points.push(point('ahu_a', ['freezeStat'], n, false));
+    points.push(point('ahu_a', ['freezeStat', 'sensor'], n, false));
     n += 1;
   }
   /** @type {any[]} */
@@ -60,7 +60,7 @@ function fleet(spec) {
     equipment.push({ id: box.id, type: 'vav', tags: ['vav'], ahuRef: 'ahu_a' });
     points.push(point(box.id, ['zone', 'air', 'temp', 'sensor'], n, false));
     n += 1;
-    if (box.kind === 'flush') points.push(point(box.id, ['flush', 'cmd'], n, true));
+    if (box.kind === 'flush') points.push(point(box.id, ['purge', 'cmd'], n, true));
     if (box.kind === 'setpoint') points.push(point(box.id, ['air', 'flow', 'sp'], n, true));
     if (box.kind === 'readonly') points.push(point(box.id, ['air', 'flow', 'sp'], n, false));
     if (box.kind === 'max_only') points.push(point(box.id, ['air', 'flow', 'max'], n, false));
@@ -116,7 +116,7 @@ test('the same planner yields different plans for different models', () => {
     allWritable.capability.vav.per_box.map((box) => box.strategy),
     ['flush_point', 'airflow_setpoint'],
   );
-  assert.ok(allWritable.sample_points.some((item) => item.role === 'outside_air_damper_command'));
+  assert.ok(allWritable.sample_points.some((item) => item.role === 'outdoor_air_intake_damper_position_command'));
 
   const mixed = buildPlan(fleet({
     boxes: [
@@ -149,7 +149,7 @@ test('the same planner yields different plans for different models', () => {
   assert.equal(step(noEconomizer, 'ahu.economizer').status, 'skipped');
   assert.match(step(noEconomizer, 'ahu.economizer').skip_reason, /^economizer_points_missing:/);
   assert.equal(step(noEconomizer, 'ahu.recirc').status, 'included');
-  assert.ok(step(noEconomizer, 'ahu.recirc').writes.every((write) => write.role !== 'outside_air_damper_command'));
+  assert.ok(step(noEconomizer, 'ahu.recirc').writes.every((write) => write.role !== 'outdoor_air_intake_damper_position_command'));
   assert.equal(step(noEconomizer, 'vav.max_cool').status, 'included');
 });
 
@@ -175,19 +175,19 @@ test('interlocks and box limits come from the model and the policy', () => {
 
 test('a config writable flag cannot promote a read-only model point', () => {
   assert.deepEqual(
-    evaluateWrite({ role: 'cooling_valve_command', writable: false }, { writable: true }),
+    evaluateWrite({ role: 'cooling_valve_position_command', writable: false }, { writable: true }),
     { ok: false, reason: 'model_not_writable' },
   );
   assert.deepEqual(
-    evaluateWrite({ role: 'cooling_valve_command', writable: true }, { writable: true }),
+    evaluateWrite({ role: 'cooling_valve_position_command', writable: true }, { writable: true }),
     { ok: true },
   );
   assert.deepEqual(
-    evaluateWrite({ role: 'cooling_valve_command', writable: true }, undefined),
+    evaluateWrite({ role: 'cooling_valve_position_command', writable: true }, undefined),
     { ok: true },
   );
   assert.deepEqual(
-    evaluateWrite({ role: 'supply_fan_run_status', writable: true }, undefined),
+    evaluateWrite({ role: 'supply_fan_operating_status', writable: true }, undefined),
     { ok: false, reason: 'role_not_writable' },
   );
   assert.deepEqual(confirmRuntime({ writable: false }, { priority_array: true }), { ok: false, reason: 'model_not_writable' });
@@ -199,13 +199,13 @@ test('a config writable flag cannot promote a read-only model point', () => {
 test('an extended haystack map resolves tags the shipped map does not list', () => {
   const map = mergeMaps(loadHaystackMap(), {
     version: 1,
-    roles: [{ role: 'outside_air_damper_command', tags: ['oa', 'dpr', 'cmd'] }],
+    roles: [{ role: 'outdoor_air_intake_damper_position_command', tags: ['oa', 'dpr', 'cmd'] }],
   });
   const model = loadHaystackModel({
     equipment: [{ id: 'ahu_a', type: 'ahu' }],
     points: [point('ahu_a', ['oa', 'dpr', 'cmd'], 1, true)],
   }, map);
-  const bound = model.equipment[0].points.outside_air_damper_command;
+  const bound = model.equipment[0].points.outdoor_air_intake_damper_position_command;
   assert.equal(bound.writable, true);
   assert.equal(bound.uuid, uuid(1));
 });
@@ -220,8 +220,8 @@ test('haystack still plans when rdf input is refused', () => {
 test('mode point, bas toggle, and missing sensors change the plan', () => {
   const base = fleet({ boxes: [{ id: 'vav_01', kind: 'flush' }] });
   const ahu = base.equipment.find((item) => item.id === 'ahu_a');
-  ahu.points.ahu_test_mode_command = {
-    role: 'ahu_test_mode_command',
+  ahu.points.test_operating_mode_command = {
+    role: 'test_operating_mode_command',
     uuid: uuid(40),
     layer: 'hpl:bacnet:1',
     writable: true,
@@ -237,17 +237,17 @@ test('mode point, bas toggle, and missing sensors change the plan', () => {
       { step_id: 'recovery' },
     ],
   } }));
-  assert.equal(step(mode, 'ahu.recirc').writes[0].role, 'ahu_test_mode_command');
+  assert.equal(step(mode, 'ahu.recirc').writes[0].role, 'test_operating_mode_command');
   assert.equal(step(mode, 'vav.max_cool').skip_reason, 'disabled');
   assert.equal(step(mode, 'ahu.fan_off').skip_reason, 'step_not_implemented');
 
-  delete ahu.points.ahu_test_mode_command.writable;
-  ahu.points.ahu_test_mode_command.writable = false;
+  delete ahu.points.test_operating_mode_command.writable;
+  ahu.points.test_operating_mode_command.writable = false;
   const blocked = buildPlan(base, policy({ plan: { ahu_strategy: 'mode_point', steps: [{ step_id: 'ahu.recirc' }, { step_id: 'recovery' }] } }));
   assert.equal(step(blocked, 'ahu.recirc').status, 'skipped');
 
-  ahu.points.vav_max_cooling_mode_command = {
-    role: 'vav_max_cooling_mode_command',
+  ahu.points.maximum_cooling_operating_mode_command = {
+    role: 'maximum_cooling_operating_mode_command',
     uuid: uuid(41),
     layer: 'hpl:bacnet:1',
     writable: true,
@@ -256,9 +256,9 @@ test('mode point, bas toggle, and missing sensors change the plan', () => {
   const toggled = buildPlan(base, policy({ vav_test: { strategy: 'bas_toggle' } }));
   assert.equal(step(toggled, 'vav.max_cool').status, 'included');
   assert.equal(step(toggled, 'vav.max_cool').boxes[0].strategy, 'bas_toggle');
-  ahu.points.vav_max_cooling_mode_command.writable = false;
+  ahu.points.maximum_cooling_operating_mode_command.writable = false;
   const noToggle = buildPlan(base, policy({ vav_test: { strategy: 'bas_toggle' } }));
-  assert.match(step(noToggle, 'vav.max_cool').skip_reason, /vav_max_cooling_mode_command/);
+  assert.match(step(noToggle, 'vav.max_cool').skip_reason, /maximum_cooling_operating_mode_command/);
 
   delete ahu.points.discharge_air_temperature;
   const blind = buildPlan(base, policy());

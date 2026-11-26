@@ -21,23 +21,23 @@ function readings(values, age = 0) {
 }
 
 test('each interlock trips and a fresh sample clears the stale streak', () => {
-  assert.equal(evaluateInterlocks(config, readings({ duct_static_pressure: 1200 }), memory, 0).trip, 'duct_static_high');
+  assert.equal(evaluateInterlocks(config, readings({ discharge_air_static_pressure: 1200 }), memory, 0).trip, 'duct_static_high');
   assert.equal(evaluateInterlocks(config, readings({
     mixed_air_temperature: 4,
-    outside_air_damper_command: 20,
+    outdoor_air_intake_damper_position_command: 20,
   }), memory, 0).trip, 'mixed_air_low');
   assert.equal(evaluateInterlocks(config, readings({
     mixed_air_temperature: 4,
-    outside_air_damper_command: 0,
+    outdoor_air_intake_damper_position_command: 0,
   }), memory, 0).trip, null);
   assert.equal(evaluateInterlocks(config, readings({ discharge_air_temperature: 2 }), memory, 0).trip, 'discharge_air_low');
-  assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: false }), memory, 0).trip, 'fan_status_lost');
-  assert.equal(evaluateInterlocks(config, readings({ freeze_protection_status: true }), memory, 0).trip, 'freeze_protection');
-  assert.equal(evaluateInterlocks(config, readings({ smoke_alarm_status: true }), memory, 0).trip, 'smoke_alarm');
-  assert.equal(evaluateInterlocks(config, readings({ freeze_protection_status: 1 }), memory, 0).trip, 'freeze_protection');
-  assert.equal(evaluateInterlocks(config, readings({ smoke_alarm_status: 'active' }), memory, 0).trip, 'smoke_alarm');
-  assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: 0 }), memory, 0).trip, 'fan_status_lost');
-  assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: 'inactive' }), memory, 0).trip, 'fan_status_lost');
+  assert.equal(evaluateInterlocks(config, readings({ supply_fan_operating_status: false }), memory, 0).trip, 'fan_status_lost');
+  assert.equal(evaluateInterlocks(config, readings({ air_temperature_low_limit_alarm_status: true }), memory, 0).trip, 'freeze_protection');
+  assert.equal(evaluateInterlocks(config, readings({ air_smoke_alarm_status: true }), memory, 0).trip, 'smoke_alarm');
+  assert.equal(evaluateInterlocks(config, readings({ air_temperature_low_limit_alarm_status: 1 }), memory, 0).trip, 'freeze_protection');
+  assert.equal(evaluateInterlocks(config, readings({ air_smoke_alarm_status: 'active' }), memory, 0).trip, 'smoke_alarm');
+  assert.equal(evaluateInterlocks(config, readings({ supply_fan_operating_status: 0 }), memory, 0).trip, 'fan_status_lost');
+  assert.equal(evaluateInterlocks(config, readings({ supply_fan_operating_status: 'inactive' }), memory, 0).trip, 'fan_status_lost');
 
   const first = evaluateInterlocks(config, readings({ zone_air_temperature: 30 }), memory, 0);
   assert.equal(first.trip, null);
@@ -46,10 +46,10 @@ test('each interlock trips and a fresh sample clears the stale streak', () => {
   const back = evaluateInterlocks(config, readings({ zone_air_temperature: 22 }), later.memory, 6 * 60 * 1000);
   assert.equal(back.memory.outOfBandSince, null);
 
-  const stale = evaluateInterlocks(config, readings({ duct_static_pressure: 100 }, 90), memory, 0);
+  const stale = evaluateInterlocks(config, readings({ discharge_air_static_pressure: 100 }, 90), memory, 0);
   assert.equal(stale.trip, null);
-  assert.equal(evaluateInterlocks(config, readings({ duct_static_pressure: 100 }, 90), stale.memory, 1).trip, 'stale_data');
-  const cleared = evaluateInterlocks(config, readings({ duct_static_pressure: 100 }, 0), stale.memory, 2);
+  assert.equal(evaluateInterlocks(config, readings({ discharge_air_static_pressure: 100 }, 90), stale.memory, 1).trip, 'stale_data');
+  const cleared = evaluateInterlocks(config, readings({ discharge_air_static_pressure: 100 }, 0), stale.memory, 2);
   assert.equal(cleared.memory.staleStrikes, 0);
 });
 

@@ -68,9 +68,9 @@ The Haystack tag adapter is the primary model input. It reads NF point tags and 
 
 Writable comes from the `writable` marker. A `cmd` or `sp` tag does not make a point writable by itself. `evaluateWrite` refuses the write when the model marker is absent, even if config sets `writable: true`. When a config binding exists it must also set `writable: true` (operator allow-list). A discovered point with no config binding is allowed when the model marks it writable. `confirmRuntime` then requires a priority array and, when a readback probe is present, a matching readback. Disagreement skips the point; it does not write it.
 
-`air flow sp` plus `writable` maps to `cooling_air_flow_setpoint`, not to `cooling_air_flow_maximum`. The maximum stays the read-only cap from section 5.1. The requirement's example named the maximum role for the writable airflow point; the design table gives that job to the setpoint role. Sites that tag the cap differently edit the JSON map.
+`air flow sp` plus `writable` maps to `discharge_air_volume_flow_rate_setpoint`, not to `discharge_air_volume_flow_rate_maximum`. The maximum stays the read-only cap from section 5.1. The requirement's example named the maximum role for the writable airflow point; the design table gives that job to the setpoint role. Sites that tag the cap differently edit the JSON map.
 
-`ahu.economizer` is skipped with `economizer_points_missing` unless `outside_air_damper_command` is model-writable. Recirculation still runs from the coil commands when the damper point is absent. The damper is written during recirculation only when the model marks it writable. Weather remains a runtime precondition (`econ_window`), not a planning input.
+`ahu.economizer` is skipped with `economizer_points_missing` unless `outdoor_air_intake_damper_position_command` is model-writable. Recirculation still runs from the coil commands when the damper point is absent. The damper is written during recirculation only when the model marks it writable. Weather remains a runtime precondition (`econ_window`), not a planning input.
 
 A VAV box is not special-cased by id. Strategy order is the site policy (`auto`, `auto_per_box`, or one strategy). The model decides which of those strategies each box supports. Boxes past `max_boxes_overridden` are skipped with `over_box_limit` after sorting ids, so the cut is stable and not a per-box rule.
 
@@ -93,6 +93,12 @@ Point query, point upsert, and AddData are `POST /api/v1/point/query`, `/api/v1/
 ## D17. Release verification
 
 A corrupt JSONL line is skipped wherever it sits, so one bad line cannot hide earlier overrides. After `CancelCommand`, a slot that is still occupied is relinquished with a NULL write at the same priority. That covers a zombie the command service did not clear. Other slots are not written. A `failed` ledger result removes that override; an `intent` with no result is treated as possibly written and is released.
+
+## D21. Role names come from the vendored Open-FDD vocabulary
+
+`vendor/roles/openfdd-roles.json` is the merged `roles/openfdd-roles.json` from open-fdd master. `schema/openfdd-roles.pin.json` records sha256 `43717ebc6187f678e3ee424b5e877f14dcd92e387bfdcedd7cbdb2f9b5eb85c1`. `lib/roles.js` keeps only the entries whose consumer is `nf-hvac-functional-test`. The id is the 223P role name. Haystack markers, including custom markers, are the binding and are read from that file. Wire units are the QUDT tokens (`DEG_C`, `PA`, `PERCENT` on a 0 to 100 scale, `PERCENT_RH`, `L-PER-SEC`). They are not fractions. Older names in the file's `aliases` still resolve.
+
+The RDF pin in `schema/shared-role-file.pin.json` is unchanged. That path is still the absent Turtle file. This JSON vocabulary does not turn the RDF adapter back on.
 
 ## D20. Command-service BACnet priority
 

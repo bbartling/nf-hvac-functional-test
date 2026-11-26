@@ -64,49 +64,49 @@
         "discharge_air_temperature": { "uuid": "c05d334d-8b29-49c8-ae70-b68a8f296e12", "layer": "hpl:bacnet:1" },
         "mixed_air_temperature": { "uuid": "7889198b-0a2d-490f-a78e-259e25f13aa3", "layer": "hpl:bacnet:1" },
         "return_air_temperature": { "uuid": "59948e19-75a3-4b67-8e70-7cc1d4849a77", "layer": "hpl:bacnet:1" },
-        "outside_air_temperature": { "uuid": "8d3319f5-7a19-4b09-a2d0-5c5af5364b3f", "layer": "hpl:bacnet:1" },
-        "outside_air_relative_humidity": { "uuid": "6f1e54a7-f896-4f35-85bf-186232ec048f", "layer": "hpl:bacnet:1" },
+        "outdoor_air_intake_temperature": { "uuid": "8d3319f5-7a19-4b09-a2d0-5c5af5364b3f", "layer": "hpl:bacnet:1" },
+        "outdoor_air_intake_relative_humidity": { "uuid": "6f1e54a7-f896-4f35-85bf-186232ec048f", "layer": "hpl:bacnet:1" },
         "discharge_air_temperature_setpoint": { "uuid": "8aad80d3-edf6-4b19-abac-882a50dcda07", "layer": "hpl:bacnet:1" },
-        "duct_static_pressure": { "uuid": "44682c15-4b20-4e6c-95d8-ccf7682e3b0f", "layer": "hpl:bacnet:1" },
-        "duct_static_pressure_setpoint": { "uuid": "085b6161-d03b-486d-b10f-43a14ef41644", "layer": "hpl:bacnet:1" },
-        "supply_fan_run_status": { "uuid": "3689466e-18c7-4f1d-b5ae-4d4541ecacbd", "layer": "hpl:bacnet:1" },
+        "discharge_air_static_pressure": { "uuid": "44682c15-4b20-4e6c-95d8-ccf7682e3b0f", "layer": "hpl:bacnet:1" },
+        "discharge_air_static_pressure_setpoint": { "uuid": "085b6161-d03b-486d-b10f-43a14ef41644", "layer": "hpl:bacnet:1" },
+        "supply_fan_operating_status": { "uuid": "3689466e-18c7-4f1d-b5ae-4d4541ecacbd", "layer": "hpl:bacnet:1" },
         "supply_fan_command": { "uuid": "d9106e27-0c5b-42b9-9863-20d1888e5d16", "layer": "hpl:bacnet:1" },
-        "outside_air_damper_position": { "uuid": "2ba9416a-d1e1-4612-9313-69549d595c71", "layer": "hpl:bacnet:1" },
-        "return_air_damper_position": { "uuid": "23395fe4-98dd-4a29-8a09-9a3122a583be", "layer": "hpl:bacnet:1" },
+        "outdoor_air_intake_damper_position": { "uuid": "2ba9416a-d1e1-4612-9313-69549d595c71", "layer": "hpl:bacnet:1" },
+        "return_damper_position": { "uuid": "23395fe4-98dd-4a29-8a09-9a3122a583be", "layer": "hpl:bacnet:1" },
         "cooling_valve_position": { "uuid": "3c902eb7-0b40-485f-b66b-2501880fdeb8", "layer": "hpl:bacnet:1" },
         "heating_valve_position": { "uuid": "7b6b1fd0-6c70-44c4-90ea-7d2945fbf6e6", "layer": "hpl:bacnet:1" },
-        "outside_air_damper_command": { "uuid": "a34087fd-9d21-432d-8b10-dd38e018ab3f", "layer": "hpl:bacnet:1", "writable": true },
-        "return_air_damper_command": { "uuid": "b424f5ff-b283-4185-911a-58daca135023", "layer": "hpl:bacnet:1", "writable": true },
-        "cooling_valve_command": { "uuid": "b6f41167-ab54-4949-af95-5c1f7cb23fd6", "layer": "hpl:bacnet:1", "writable": true },
-        "heating_valve_command": { "uuid": "d73c2373-3152-4756-9cd8-6a5f6a4f0e1c", "layer": "hpl:bacnet:1", "writable": true },
-        "freeze_protection_status": { "uuid": "4af11661-c690-4305-9997-55fa77723856", "layer": "hpl:bacnet:1" },
-        "smoke_alarm_status": { "uuid": "6d8bb1e3-79c8-4483-ae3b-7fa449771b53", "layer": "hpl:bacnet:1" }
+        "outdoor_air_intake_damper_position_command": { "uuid": "a34087fd-9d21-432d-8b10-dd38e018ab3f", "layer": "hpl:bacnet:1", "writable": true },
+        "return_damper_position_command": { "uuid": "b424f5ff-b283-4185-911a-58daca135023", "layer": "hpl:bacnet:1", "writable": true },
+        "cooling_valve_position_command": { "uuid": "b6f41167-ab54-4949-af95-5c1f7cb23fd6", "layer": "hpl:bacnet:1", "writable": true },
+        "heating_valve_position_command": { "uuid": "d73c2373-3152-4756-9cd8-6a5f6a4f0e1c", "layer": "hpl:bacnet:1", "writable": true },
+        "air_temperature_low_limit_alarm_status": { "uuid": "4af11661-c690-4305-9997-55fa77723856", "layer": "hpl:bacnet:1" },
+        "air_smoke_alarm_status": { "uuid": "6d8bb1e3-79c8-4483-ae3b-7fa449771b53", "layer": "hpl:bacnet:1" }
       }
     },
     {
       "id": "vav_01",
       "type": "vav",
       "points": {
-        "discharge_air_flow": { "uuid": "36a45c6a-fc81-4afa-89bf-56f39bb56ffa", "layer": "hpl:bacnet:1" },
-        "cooling_air_flow_setpoint": { "uuid": "552ef266-654b-4f91-bcb6-846375b75cc4", "layer": "hpl:bacnet:1", "writable": true },
-        "cooling_air_flow_maximum": { "uuid": "b80e5efa-a395-4907-b841-2922cf2bd9b3", "layer": "hpl:bacnet:1" },
-        "discharge_air_damper_position": { "uuid": "a7cb09ec-3590-4b83-b09d-a4ea5b8034a8", "layer": "hpl:bacnet:1" },
+        "discharge_air_volume_flow_rate": { "uuid": "36a45c6a-fc81-4afa-89bf-56f39bb56ffa", "layer": "hpl:bacnet:1" },
+        "discharge_air_volume_flow_rate_setpoint": { "uuid": "552ef266-654b-4f91-bcb6-846375b75cc4", "layer": "hpl:bacnet:1", "writable": true },
+        "discharge_air_volume_flow_rate_maximum": { "uuid": "b80e5efa-a395-4907-b841-2922cf2bd9b3", "layer": "hpl:bacnet:1" },
+        "damper_position": { "uuid": "a7cb09ec-3590-4b83-b09d-a4ea5b8034a8", "layer": "hpl:bacnet:1" },
         "zone_air_temperature": { "uuid": "d43561a2-801e-4443-8274-477095f6463a", "layer": "hpl:bacnet:1" },
         "zone_air_temperature_setpoint": { "uuid": "a69d4d83-2398-45fb-9541-b8f710c73302", "layer": "hpl:bacnet:1" },
-        "flush_mode_command": { "uuid": "75c05d5a-307a-4740-b815-3580cec60749", "layer": "hpl:bacnet:1", "writable": true }
+        "purge_operating_mode_command": { "uuid": "75c05d5a-307a-4740-b815-3580cec60749", "layer": "hpl:bacnet:1", "writable": true }
       }
     },
     {
       "id": "vav_02",
       "type": "vav",
       "points": {
-        "discharge_air_flow": { "uuid": "c400e530-620b-4c84-a2ab-68ca2af8ea10", "layer": "hpl:bacnet:1" },
-        "cooling_air_flow_setpoint": { "uuid": "fb01102c-4925-427a-8b4a-294cc6abbe7f", "layer": "hpl:bacnet:1", "writable": true },
-        "cooling_air_flow_maximum": { "uuid": "806d219d-b3d1-4a09-bf92-b719d89e109c", "layer": "hpl:bacnet:1" },
-        "discharge_air_damper_position": { "uuid": "73c4a26a-59bb-464c-9cad-7a3f8a272725", "layer": "hpl:bacnet:1" },
+        "discharge_air_volume_flow_rate": { "uuid": "c400e530-620b-4c84-a2ab-68ca2af8ea10", "layer": "hpl:bacnet:1" },
+        "discharge_air_volume_flow_rate_setpoint": { "uuid": "fb01102c-4925-427a-8b4a-294cc6abbe7f", "layer": "hpl:bacnet:1", "writable": true },
+        "discharge_air_volume_flow_rate_maximum": { "uuid": "806d219d-b3d1-4a09-bf92-b719d89e109c", "layer": "hpl:bacnet:1" },
+        "damper_position": { "uuid": "73c4a26a-59bb-464c-9cad-7a3f8a272725", "layer": "hpl:bacnet:1" },
         "zone_air_temperature": { "uuid": "c412992c-6925-4b36-9725-7d731faa8623", "layer": "hpl:bacnet:1" },
         "zone_air_temperature_setpoint": { "uuid": "99dd6e2b-8530-4798-974e-43320fe34509", "layer": "hpl:bacnet:1" },
-        "flush_mode_command": { "uuid": "16d1d396-7410-45a0-9aaa-9e0393f0f103", "layer": "hpl:bacnet:1", "writable": true }
+        "purge_operating_mode_command": { "uuid": "16d1d396-7410-45a0-9aaa-9e0393f0f103", "layer": "hpl:bacnet:1", "writable": true }
       }
     }
   ]

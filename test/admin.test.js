@@ -39,7 +39,7 @@ function stubRunner() {
 test('admin actions validate, discover, start, abort, and acknowledge', async () => {
   const fake = await createFake();
   try {
-    fake.seedAhu({ points: { outside_air_temperature: '00000000-0000-4000-8000-000000000301' } });
+    fake.seedAhu({ points: { outdoor_air_intake_temperature: '00000000-0000-4000-8000-000000000301' } });
     const client = new NfClient({ baseUrl: fake.baseUrl, sleep: async () => {} });
     let writes = 0;
     const original = client.writeInCommand.bind(client);

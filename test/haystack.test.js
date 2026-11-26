@@ -37,41 +37,41 @@ function roleOf(point, type = 'ahu') {
 test('cmd forces a command role and a tie is reported instead of guessed', () => {
   const fan = roleOf(tagged(['supply', 'fan', 'run', 'cmd']));
   assert.equal(fan.points.supply_fan_command.role, 'supply_fan_command');
-  assert.equal(fan.points.supply_fan_run_status, undefined);
+  assert.equal(fan.points.supply_fan_operating_status, undefined);
   assert.equal(fan.ambiguous.length, 0);
 
   const tiedMap = mergeMaps(MAP, {
     version: 1,
-    roles: [{ role: 'ahu_test_mode_command', tags: ['fan', 'cmd', 'run'] }],
+    roles: [{ role: 'test_operating_mode_command', tags: ['fan', 'cmd', 'run'] }],
   });
   const tags = pointTags(tagged(['supply', 'fan', 'run', 'cmd']));
   const tied = matchRoleResult(tags, tiedMap);
   assert.equal(tied.entry, null);
   assert.equal(tied.ambiguous, true);
-  assert.deepEqual(tied.roles.slice().sort(), ['ahu_test_mode_command', 'supply_fan_command']);
+  assert.deepEqual(tied.roles.slice().sort(), ['supply_fan_command', 'test_operating_mode_command']);
 
   const loaded = loadHaystackModel({
     equipment: [{ id: 'ahu_a', type: 'ahu' }],
     points: [tagged(['supply', 'fan', 'run', 'cmd'])],
   }, tiedMap);
   assert.equal(loaded.equipment[0].points.supply_fan_command, undefined);
-  assert.equal(loaded.equipment[0].points.ahu_test_mode_command, undefined);
+  assert.equal(loaded.equipment[0].points.test_operating_mode_command, undefined);
   assert.equal(loaded.ambiguous.length, 1);
-  assert.deepEqual(loaded.ambiguous[0].roles, ['ahu_test_mode_command', 'supply_fan_command']);
+  assert.deepEqual(loaded.ambiguous[0].roles.slice().sort(), ['supply_fan_command', 'test_operating_mode_command']);
 });
 
 test('max or min airflow cannot bind to the writable setpoint', () => {
   const capped = roleOf(tagged(['max', 'air', 'flow', 'sp', 'writable']), 'vav');
-  assert.equal(capped.points.cooling_air_flow_setpoint, undefined);
-  assert.equal(capped.points.cooling_air_flow_maximum, undefined);
+  assert.equal(capped.points.discharge_air_volume_flow_rate_setpoint, undefined);
+  assert.equal(capped.points.discharge_air_volume_flow_rate_maximum.role, 'discharge_air_volume_flow_rate_maximum');
 
   const minimum = roleOf(tagged(['min', 'air', 'flow', 'sp', 'writable']), 'vav');
-  assert.equal(minimum.points.cooling_air_flow_setpoint, undefined);
+  assert.equal(minimum.points.discharge_air_volume_flow_rate_setpoint, undefined);
 
   const setpoint = roleOf(tagged(['air', 'flow', 'sp', 'writable']), 'vav');
-  assert.equal(setpoint.points.cooling_air_flow_setpoint.writable, true);
-  const maximum = roleOf(tagged(['air', 'flow', 'max']), 'vav');
-  assert.equal(maximum.points.cooling_air_flow_maximum.writable, false);
+  assert.equal(setpoint.points.discharge_air_volume_flow_rate_setpoint.writable, true);
+  const maximum = roleOf(tagged(['max', 'air', 'flow', 'sp']), 'vav');
+  assert.equal(maximum.points.discharge_air_volume_flow_rate_maximum.writable, false);
 });
 
 test('two points with the same role on one equipment bind neither', () => {
@@ -96,29 +96,29 @@ test('class and comma-separated markers are tags, including Haystack 4 names', (
       equipRef: 'ahu_a',
     },
   });
-  assert.equal(fromMarkers.points.cooling_valve_command.writable, true);
+  assert.equal(fromMarkers.points.cooling_valve_position_command.writable, true);
 
   const fromClass = roleOf({
     uuid: '00000000-0000-4000-8000-000000000203',
     layer: 'hpl:bacnet:1',
     attrs: {
       class: 'freezeStat',
-      markers: '',
+      markers: 'sensor',
       equipRef: 'ahu_a',
     },
   });
-  assert.equal(fromClass.points.freeze_protection_status.role, 'freeze_protection_status');
+  assert.equal(fromClass.points.air_temperature_low_limit_alarm_status.role, 'air_temperature_low_limit_alarm_status');
 
   const duct = roleOf({
     uuid: '00000000-0000-4000-8000-000000000204',
     layer: 'hpl:bacnet:1',
     attrs: {
       class: 'sensor',
-      markers: 'ductStatic,sensor',
+      markers: 'discharge,air,pressure,sensor',
       equipRef: 'ahu_a',
     },
   });
-  assert.equal(duct.points.duct_static_pressure.role, 'duct_static_pressure');
+  assert.equal(duct.points.discharge_air_static_pressure.role, 'discharge_air_static_pressure');
 
   const vav = loadHaystackModel({
     equipment: [{ id: 'vav_01', type: 'vav' }],
@@ -135,7 +135,7 @@ test('class and comma-separated markers are tags, including Haystack 4 names', (
   assert.equal(dashed.points.discharge_air_temperature.role, 'discharge_air_temperature');
 
   const damper = roleOf(tagged(['outside', 'damper', 'cmd', 'writable']));
-  assert.equal(damper.points.outside_air_damper_command.role, 'outside_air_damper_command');
+  assert.equal(damper.points.outdoor_air_intake_damper_position_command.role, 'outdoor_air_intake_damper_position_command');
   const withAir = roleOf(tagged(['outside', 'air', 'damper', 'cmd', 'writable']));
-  assert.equal(withAir.points.outside_air_damper_command.role, 'outside_air_damper_command');
+  assert.equal(withAir.points.outdoor_air_intake_damper_position_command.role, 'outdoor_air_intake_damper_position_command');
 });

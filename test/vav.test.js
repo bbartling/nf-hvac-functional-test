@@ -40,10 +40,10 @@ test('boxes are written in batches and a dead readback is not treated as success
   const writes = [];
   const sleeps = [];
   const points = new Map([
-    ['vav_01|flush_mode_command', { uuid: 'u1', layer: 'hpl:bacnet:1' }],
-    ['vav_02|flush_mode_command', { uuid: 'u2', layer: 'hpl:bacnet:1' }],
-    ['vav_03|cooling_air_flow_setpoint', { uuid: 'u3', layer: 'hpl:bacnet:1' }],
-    ['ahu_a|vav_max_cooling_mode_command', { uuid: 'u4', layer: 'hpl:bacnet:1' }],
+    ['vav_01|purge_operating_mode_command', { uuid: 'u1', layer: 'hpl:bacnet:1' }],
+    ['vav_02|purge_operating_mode_command', { uuid: 'u2', layer: 'hpl:bacnet:1' }],
+    ['vav_03|discharge_air_volume_flow_rate_setpoint', { uuid: 'u3', layer: 'hpl:bacnet:1' }],
+    ['ahu_a|maximum_cooling_operating_mode_command', { uuid: 'u4', layer: 'hpl:bacnet:1' }],
   ]);
   const writer = {
     write: async (spec) => {

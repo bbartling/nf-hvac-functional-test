@@ -1,0 +1,6 @@
+{
+  "path": "vendor/roles/openfdd-roles.json",
+  "sha256": "43717ebc6187f678e3ee424b5e877f14dcd92e387bfdcedd7cbdb2f9b5eb85c1",
+  "version": "1.1.0-draft.1",
+  "source": "https://github.com/bbartling/open-fdd/blob/master/roles/openfdd-roles.json"
+}

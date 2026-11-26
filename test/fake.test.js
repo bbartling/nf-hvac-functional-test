@@ -41,9 +41,9 @@ test('command expiry clears the priority slot and offline expiry becomes a zombi
     const stuck = '00000000-0000-4000-8000-0000000000a2';
     fake.seedAhu({
       points: {
-        outside_air_damper_command: damper,
-        cooling_valve_command: stuck,
-        outside_air_temperature: '00000000-0000-4000-8000-0000000000a3',
+        outdoor_air_intake_damper_position_command: damper,
+        cooling_valve_position_command: stuck,
+        outdoor_air_intake_temperature: '00000000-0000-4000-8000-0000000000a3',
         return_air_temperature: '00000000-0000-4000-8000-0000000000a4',
         mixed_air_temperature: '00000000-0000-4000-8000-0000000000a5',
         discharge_air_temperature: '00000000-0000-4000-8000-0000000000a6',
@@ -80,7 +80,7 @@ test('priority array keeps other slots and null relinquishes only our slot', asy
   const { fake, client } = await fixture();
   try {
     const uuid = '00000000-0000-4000-8000-0000000000b1';
-    fake.seedAhu({ points: { outside_air_damper_command: uuid } });
+    fake.seedAhu({ points: { outdoor_air_intake_damper_position_command: uuid } });
     await client.bacnetWrite({ uuid, priority: 5, value: 40 });
     await client.bacnetWrite({ uuid, priority: 8, value: 10 });
     let slots = await client.readPriorityArray({ uuid });
@@ -106,7 +106,7 @@ test('unique names, guardrails, conflict, and client retries', async () => {
   const { fake, client } = await fixture();
   try {
     const uuid = '00000000-0000-4000-8000-0000000000c1';
-    fake.seedAhu({ points: { cooling_valve_command: uuid } });
+    fake.seedAhu({ points: { cooling_valve_position_command: uuid } });
     const first = await client.startCommand({ name: 'ftest-lock', duration: '120s' });
     await assert.rejects(
       () => client.startCommand({ name: 'ftest-lock', duration: '120s' }),
@@ -139,56 +139,56 @@ test('ahu mix and vav profiles stay plausible', async () => {
   const { fake, client } = await fixture();
   try {
     const ids = {
-      outside_air_temperature: '00000000-0000-4000-8000-0000000000d1',
+      outdoor_air_intake_temperature: '00000000-0000-4000-8000-0000000000d1',
       return_air_temperature: '00000000-0000-4000-8000-0000000000d2',
       mixed_air_temperature: '00000000-0000-4000-8000-0000000000d3',
       discharge_air_temperature: '00000000-0000-4000-8000-0000000000d4',
-      outside_air_damper_command: '00000000-0000-4000-8000-0000000000d5',
-      cooling_valve_command: '00000000-0000-4000-8000-0000000000d6',
-      supply_fan_run_status: '00000000-0000-4000-8000-0000000000d7',
+      outdoor_air_intake_damper_position_command: '00000000-0000-4000-8000-0000000000d5',
+      cooling_valve_position_command: '00000000-0000-4000-8000-0000000000d6',
+      supply_fan_operating_status: '00000000-0000-4000-8000-0000000000d7',
     };
     fake.seedAhu({ points: ids, oat: 10, rat: 24, fanOn: true });
-    await client.bacnetWrite({ uuid: ids.outside_air_damper_command, priority: 8, value: 0 });
+    await client.bacnetWrite({ uuid: ids.outdoor_air_intake_damper_position_command, priority: 8, value: 0 });
     const closed = await client.bacnetRead([{ uuid: ids.mixed_air_temperature, property: 'PRESENT_VALUE' }]);
     assert.ok(closed.results[0].value > 23);
 
-    await client.bacnetWrite({ uuid: ids.outside_air_damper_command, priority: 8, value: 100 });
+    await client.bacnetWrite({ uuid: ids.outdoor_air_intake_damper_position_command, priority: 8, value: 100 });
     const open = await client.bacnetRead([{ uuid: ids.mixed_air_temperature, property: 'PRESENT_VALUE' }]);
     assert.ok(open.results[0].value < 11);
 
     const box = {
-      discharge_air_flow: '00000000-0000-4000-8000-0000000000e1',
-      cooling_air_flow_setpoint: '00000000-0000-4000-8000-0000000000e2',
-      cooling_air_flow_maximum: '00000000-0000-4000-8000-0000000000e3',
+      discharge_air_volume_flow_rate: '00000000-0000-4000-8000-0000000000e1',
+      discharge_air_volume_flow_rate_setpoint: '00000000-0000-4000-8000-0000000000e2',
+      discharge_air_volume_flow_rate_maximum: '00000000-0000-4000-8000-0000000000e3',
     };
     fake.seedVav({ id: 'vav_01', profile: 'setpoint_readonly', points: box, maxFlow: 0.4 });
-    const readonly = await client.bacnetWrite({ uuid: box.cooling_air_flow_setpoint, priority: 8, value: 0.4 });
+    const readonly = await client.bacnetWrite({ uuid: box.discharge_air_volume_flow_rate_setpoint, priority: 8, value: 0.4 });
     assert.equal(readonly.errors[0].error.code, 'not_commandable');
 
     const writable = {
-      discharge_air_flow: '00000000-0000-4000-8000-0000000000e4',
-      cooling_air_flow_setpoint: '00000000-0000-4000-8000-0000000000e5',
+      discharge_air_volume_flow_rate: '00000000-0000-4000-8000-0000000000e4',
+      discharge_air_volume_flow_rate_setpoint: '00000000-0000-4000-8000-0000000000e5',
     };
     fake.seedVav({ id: 'vav_02', profile: 'setpoint_writable', points: writable, maxFlow: 0.4 });
-    await client.bacnetWrite({ uuid: writable.cooling_air_flow_setpoint, priority: 8, value: 0.4 });
-    const flow = await client.bacnetRead([{ uuid: writable.discharge_air_flow, property: 'PRESENT_VALUE' }]);
+    await client.bacnetWrite({ uuid: writable.discharge_air_volume_flow_rate_setpoint, priority: 8, value: 0.4 });
+    const flow = await client.bacnetRead([{ uuid: writable.discharge_air_volume_flow_rate, property: 'PRESENT_VALUE' }]);
     assert.equal(flow.results[0].value, 0.4);
 
     const ignored = {
-      discharge_air_flow: '00000000-0000-4000-8000-0000000000e6',
-      cooling_air_flow_setpoint: '00000000-0000-4000-8000-0000000000e7',
+      discharge_air_volume_flow_rate: '00000000-0000-4000-8000-0000000000e6',
+      discharge_air_volume_flow_rate_setpoint: '00000000-0000-4000-8000-0000000000e7',
     };
     fake.seedVav({ id: 'vav_03', profile: 'setpoint_ignored', points: ignored });
-    await client.bacnetWrite({ uuid: ignored.cooling_air_flow_setpoint, priority: 8, value: 0.4 });
-    const slot = await client.readPriorityArray({ uuid: ignored.cooling_air_flow_setpoint });
+    await client.bacnetWrite({ uuid: ignored.discharge_air_volume_flow_rate_setpoint, priority: 8, value: 0.4 });
+    const slot = await client.readPriorityArray({ uuid: ignored.discharge_air_volume_flow_rate_setpoint });
     assert.equal(slot[7], null);
 
     const overridden = {
-      discharge_air_flow: '00000000-0000-4000-8000-0000000000e8',
-      cooling_air_flow_setpoint: '00000000-0000-4000-8000-0000000000e9',
+      discharge_air_volume_flow_rate: '00000000-0000-4000-8000-0000000000e8',
+      discharge_air_volume_flow_rate_setpoint: '00000000-0000-4000-8000-0000000000e9',
     };
     fake.seedVav({ id: 'vav_04', profile: 'higher_priority_override_active', points: overridden, maxFlow: 0.3 });
-    const array = await client.readPriorityArray({ uuid: overridden.cooling_air_flow_setpoint });
+    const array = await client.readPriorityArray({ uuid: overridden.discharge_air_volume_flow_rate_setpoint });
     assert.equal(array[6], 0.3);
 
     const upserted = await client.upsertPoints([{
@@ -203,16 +203,16 @@ test('ahu mix and vav profiles stay plausible', async () => {
     assert.equal(data.accepted, 1);
 
     const flush = {
-      discharge_air_flow: '00000000-0000-4000-8000-0000000000ea',
-      flush_mode_command: '00000000-0000-4000-8000-0000000000eb',
+      discharge_air_volume_flow_rate: '00000000-0000-4000-8000-0000000000ea',
+      purge_operating_mode_command: '00000000-0000-4000-8000-0000000000eb',
     };
     fake.seedVav({ id: 'vav_05', profile: 'flush_capable', points: flush, maxFlow: 0.55 });
-    await client.bacnetWrite({ uuid: flush.flush_mode_command, priority: 8, value: true });
-    const flushed = await client.bacnetRead([{ uuid: flush.discharge_air_flow, property: 'PRESENT_VALUE' }]);
+    await client.bacnetWrite({ uuid: flush.purge_operating_mode_command, priority: 8, value: true });
+    const flushed = await client.bacnetRead([{ uuid: flush.discharge_air_volume_flow_rate, property: 'PRESENT_VALUE' }]);
     assert.equal(flushed.results[0].value, 0.55);
 
     fake.failNext(1, { drop: true });
-    const afterDrop = await client.queryPoints({ uuid: ids.outside_air_temperature });
+    const afterDrop = await client.queryPoints({ uuid: ids.outdoor_air_intake_temperature });
     assert.equal(afterDrop.points.length, 1);
     await assert.rejects(
       () => client.request('/api/v2/command', { method: 'POST', body: { name: 'made-up', duration_s: 30 } }),

@@ -6,8 +6,8 @@ const { createState, next } = require('../lib/machine');
 
 const steps = [
   { step_id: 'ahu.baseline', hold_ms: 0, writes: [] },
-  { step_id: 'ahu.recirc', hold_ms: 1000, writes: [{ role: 'cooling_valve_command', value: 0 }], preconditions: [] },
-  { step_id: 'ahu.economizer', hold_ms: 0, writes: [{ role: 'outside_air_damper_command', value: 100 }], preconditions: ['econ_window'] },
+  { step_id: 'ahu.recirc', hold_ms: 1000, writes: [{ role: 'cooling_valve_position_command', value: 0 }], preconditions: [] },
+  { step_id: 'ahu.economizer', hold_ms: 0, writes: [{ role: 'outdoor_air_intake_damper_position_command', value: 100 }], preconditions: ['econ_window'] },
   { step_id: 'recovery', hold_ms: 0, writes: [] },
 ];
 

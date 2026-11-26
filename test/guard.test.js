@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { guardWrite } = require('../lib/writers/guard');
 
 test('guardWrite rejects a non-finite value, a clamp miss, and a missing priority array', () => {
-  const valve = { role: 'cooling_valve_command', writable: true };
+  const valve = { role: 'cooling_valve_position_command', writable: true };
   const missing = guardWrite(valve, undefined, null);
   assert.equal(missing.ok, false);
   const nan = guardWrite(valve, Number.NaN, null);
@@ -18,6 +18,6 @@ test('guardWrite rejects a non-finite value, a clamp miss, and a missing priorit
   assert.equal(unread.ok, false);
   if (!unread.ok) assert.equal(unread.reason, 'no_priority_array');
   assert.equal(guardWrite(valve, 0, { priority_array: true }).ok, true);
-  const mode = { role: 'ahu_test_mode_command', writable: true };
+  const mode = { role: 'test_operating_mode_command', writable: true };
   assert.equal(guardWrite(mode, 1, null).ok, true);
 });

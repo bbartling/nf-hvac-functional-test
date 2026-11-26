@@ -11,23 +11,23 @@ function seedVav(points, spec) {
   const profile = spec.profile;
   const max = spec.maxFlow ?? 0.5;
   const flow = new DeviceObject({
-    uuid: spec.points.discharge_air_flow,
+    uuid: spec.points.discharge_air_volume_flow_rate,
     layer,
     type: 'ai',
     relinquish: spec.flow ?? 0.1,
-    unit: 'm3/s',
-    role: 'discharge_air_flow',
+    unit: 'L/s',
+    role: 'discharge_air_volume_flow_rate',
   });
   points.set(flow.uuid, flow);
 
-  if (spec.points.cooling_air_flow_maximum) {
+  if (spec.points.discharge_air_volume_flow_rate_maximum) {
     const cap = new DeviceObject({
-      uuid: spec.points.cooling_air_flow_maximum,
+      uuid: spec.points.discharge_air_volume_flow_rate_maximum,
       layer,
       type: 'ai',
       relinquish: max,
-      unit: 'm3/s',
-      role: 'cooling_air_flow_maximum',
+      unit: 'L/s',
+      role: 'discharge_air_volume_flow_rate_maximum',
     });
     points.set(cap.uuid, cap);
   }
@@ -44,14 +44,14 @@ function seedVav(points, spec) {
     points.set(zone.uuid, zone);
   }
 
-  if (spec.points.flush_mode_command && (profile === 'flush_capable' || profile === 'offline')) {
+  if (spec.points.purge_operating_mode_command && (profile === 'flush_capable' || profile === 'offline')) {
     const flush = new DeviceObject({
-      uuid: spec.points.flush_mode_command,
+      uuid: spec.points.purge_operating_mode_command,
       layer,
       type: 'bo',
       relinquish: false,
       unit: 'bool',
-      role: 'flush_mode_command',
+      role: 'purge_operating_mode_command',
     });
     if (profile === 'offline') flush.offline = true;
     const original = flush.writeAt.bind(flush);
@@ -63,14 +63,14 @@ function seedVav(points, spec) {
     points.set(flush.uuid, flush);
   }
 
-  if (spec.points.cooling_air_flow_setpoint && profile !== 'flush_capable') {
+  if (spec.points.discharge_air_volume_flow_rate_setpoint && profile !== 'flush_capable') {
     const setpoint = new DeviceObject({
-      uuid: spec.points.cooling_air_flow_setpoint,
+      uuid: spec.points.discharge_air_volume_flow_rate_setpoint,
       layer,
       type: profile === 'setpoint_readonly' ? 'ai' : 'ao',
       relinquish: spec.flow ?? 0.1,
-      unit: 'm3/s',
-      role: 'cooling_air_flow_setpoint',
+      unit: 'L/s',
+      role: 'discharge_air_volume_flow_rate_setpoint',
     });
     if (profile === 'setpoint_ignored') setpoint.ignoreWrites = true;
     if (profile === 'offline') setpoint.offline = true;
@@ -86,7 +86,7 @@ function seedVav(points, spec) {
     points.set(setpoint.uuid, setpoint);
   }
 
-  if (profile === 'offline' && spec.points.discharge_air_flow) flow.offline = true;
+  if (profile === 'offline' && spec.points.discharge_air_volume_flow_rate) flow.offline = true;
   return { id: spec.id, profile };
 }
 

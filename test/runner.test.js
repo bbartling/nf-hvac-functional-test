@@ -39,13 +39,13 @@ function modelFor(extra = {}) {
     point('ahu_a', ['mixed', 'air', 'temp', 'sensor'], 2, false),
     point('ahu_a', ['return', 'air', 'temp', 'sensor'], 3, false),
     point('ahu_a', ['outside', 'air', 'temp', 'sensor'], 4, false),
-    point('ahu_a', ['ductStatic', 'sensor'], 5, false),
-    point('ahu_a', ['supply', 'fan', 'run'], 6, false),
+    point('ahu_a', ['discharge', 'air', 'pressure', 'sensor'], 5, false),
+    point('ahu_a', ['fan', 'run', 'sensor'], 6, false),
     point('ahu_a', ['cool', 'valve', 'cmd'], 7, true),
     point('ahu_a', ['heat', 'valve', 'cmd'], 8, true),
     point('ahu_a', ['outside', 'damper', 'cmd'], 9, true),
-    point('ahu_a', ['freezeStat'], 10, false),
-    point('ahu_a', ['smoke', 'alarm'], 11, false),
+    point('ahu_a', ['freezeStat', 'sensor'], 10, false),
+    point('ahu_a', ['smoke', 'alarm', 'sensor'], 11, false),
   ];
   /** @type {any[]} */
   const equipment = [{ id: 'ahu_a', type: 'ahu', tags: ['ahu'] }];
@@ -246,7 +246,7 @@ test('abort releases at each phase, and faults release what was written', async 
     await fault.runner.tick();
     await fault.runner.tick();
     assert.equal(fault.runner.state.stepWritten, true);
-    const damper = fault.model.equipment[0].points.outside_air_damper_command.uuid;
+    const damper = fault.model.equipment[0].points.outdoor_air_intake_damper_position_command.uuid;
     fault.fake.points.get(damper).slots[3] = 7;
     await fault.runner.tick();
     assert.equal(fault.runner.state.reason, 'interlock:override_conflict');
@@ -283,13 +283,13 @@ test('interlocks, comm loss, tick gap, and timeout all release', async () => {
     await rig.runner.tick();
     /** @type {[string, (point: any) => void][]} */
     const cases = [
-      ['duct_static_pressure', (point) => { point.presentOverride = 5000; }],
+      ['discharge_air_static_pressure', (point) => { point.presentOverride = 5000; }],
       ['discharge_air_temperature', (point) => { point.derive = () => 1; }],
-      ['supply_fan_run_status', (point) => { point.presentOverride = false; }],
-      ['freeze_protection_status', (point) => { point.presentOverride = true; }],
-      ['smoke_alarm_status', (point) => { point.presentOverride = true; }],
+      ['supply_fan_operating_status', (point) => { point.presentOverride = false; }],
+      ['air_temperature_low_limit_alarm_status', (point) => { point.presentOverride = true; }],
+      ['air_smoke_alarm_status', (point) => { point.presentOverride = true; }],
     ];
-    const duct = rig.model.equipment[0].points.duct_static_pressure.uuid;
+    const duct = rig.model.equipment[0].points.discharge_air_static_pressure.uuid;
     rig.fake.points.get(duct).presentOverride = 5000;
     await rig.runner.tick();
     assert.match(rig.runner.state.reason, /^interlock:/);
@@ -412,7 +412,7 @@ test('mode point writes the mode value and a hot outside air skips economizer', 
     await mode.runner.start('mode');
     await mode.runner.tick();
     await mode.runner.tick();
-    const uuid = mode.model.equipment[0].points.ahu_test_mode_command.uuid;
+    const uuid = mode.model.equipment[0].points.test_operating_mode_command.uuid;
     assert.equal((await mode.client.readPriorityArray({ uuid }))[7], 1);
     let guard = 0;
     while (mode.runner.state.phase !== 'COMPLETE' && guard < 20) {
@@ -426,7 +426,7 @@ test('mode point writes the mode value and a hot outside air skips economizer', 
 
   const hot = await world();
   try {
-    hot.fake.points.get(hot.model.equipment[0].points.outside_air_temperature.uuid).presentOverride = 30;
+    hot.fake.points.get(hot.model.equipment[0].points.outdoor_air_intake_temperature.uuid).presentOverride = 30;
     await hot.runner.start('hot');
     let guard = 0;
     while (hot.runner.state.phase !== 'COMPLETE' && guard < 20) {
@@ -459,10 +459,10 @@ test('boost, fan stability, unbound writes, and vav expansion are explicit', asy
     assert.equal(rig.runner.attention, 0);
     assert.equal(await rig.runner.exec({ type: 'nope' }), null);
     rig.runner.fanOnMs = 0;
-    rig.runner.state.steps = [{ writes: [{ equipment_id: 'missing', role: 'cooling_valve_command' }] }];
+    rig.runner.state.steps = [{ writes: [{ equipment_id: 'missing', role: 'cooling_valve_position_command' }] }];
     const unbound = await rig.runner.precheck();
-    assert.equal(unbound.reason, 'role_unbound:cooling_valve_command');
-    const damper = rig.model.equipment[0].points.outside_air_damper_command;
+    assert.equal(unbound.reason, 'role_unbound:cooling_valve_position_command');
+    const damper = rig.model.equipment[0].points.outdoor_air_intake_damper_position_command;
     rig.ledger.append({
       kind: 'active',
       run_id: 'old',
@@ -492,7 +492,7 @@ test('boost, fan stability, unbound writes, and vav expansion are explicit', asy
       }, {
         step_id: 'not_in_config',
         status: 'included',
-        writes: [{ role: 'cooling_valve_command', value: 0 }],
+        writes: [{ role: 'cooling_valve_position_command', value: 0 }],
       }],
     }, applyDefaults({ version: 1, vav_test: { airflow_setpoint_default_m3s: 0.4 } }));
     assert.equal(expanded[0].writes.length, 3);
@@ -534,10 +534,10 @@ test('two hundred random faults leave no override behind', async () => {
       for (let tick = 0; tick < at && runner.state.phase !== 'COMPLETE'; tick += 1) await runner.tick();
       if (fault === 'abort') await runner.abort();
       else if (fault === 'static') {
-        fake.points.get(model.equipment[0].points.duct_static_pressure.uuid).presentOverride = 4000;
+        fake.points.get(model.equipment[0].points.discharge_air_static_pressure.uuid).presentOverride = 4000;
         await runner.tick();
       } else if (fault === 'offline') {
-        const damper = model.equipment[0].points.outside_air_damper_command.uuid;
+        const damper = model.equipment[0].points.outdoor_air_intake_damper_position_command.uuid;
         fake.points.get(damper).offline = true;
         for (let extra = 0; extra < 4; extra += 1) await runner.tick();
         fake.points.get(damper).offline = false;
@@ -586,7 +586,7 @@ test('release leaves another run holding its slot', async () => {
     await rig.runner.start('run_scope');
     await rig.runner.tick();
     await rig.runner.tick();
-    const damper = rig.model.equipment[0].points.outside_air_damper_command;
+    const damper = rig.model.equipment[0].points.outdoor_air_intake_damper_position_command;
     rig.ledger.append({
       kind: 'active',
       run_id: 'other_run',
@@ -635,7 +635,7 @@ test('imperial readings trip the SI interlocks', async () => {
 
     const pressure = await world();
     opened.push(pressure.fake);
-    const duct = pressure.model.equipment[0].points.duct_static_pressure;
+    const duct = pressure.model.equipment[0].points.discharge_air_static_pressure;
     duct.unit = 'inH2O';
     pressure.fake.points.get(duct.uuid).derive = () => 5;
     await pressure.runner.start('inh2o');
@@ -644,10 +644,10 @@ test('imperial readings trip the SI interlocks', async () => {
 
     const unknown = await world();
     opened.push(unknown.fake);
-    unknown.model.equipment[0].points.duct_static_pressure.unit = 'furlong';
+    unknown.model.equipment[0].points.discharge_air_static_pressure.unit = 'furlong';
     await unknown.runner.start('unknown');
     await unknown.runner.tick();
-    assert.match(unknown.runner.state.reason, /unknown_unit:duct_static_pressure/);
+    assert.match(unknown.runner.state.reason, /unknown_unit:discharge_air_static_pressure/);
   } finally {
     for (const fake of opened) await fake.close();
   }
@@ -747,7 +747,7 @@ test('a restarted runner without live permission releases the live slot', async 
       clock.advance(10 * 1000);
       await runner.tick();
     }
-    const uuid = model.equipment[0].points.cooling_valve_command.uuid;
+    const uuid = model.equipment[0].points.cooling_valve_position_command.uuid;
     assert.equal((await client.readPriorityArray({ uuid }))[7], 0);
     const restarted = new Runner({
       client, ledger, config, plan, model, clock, fanOnMs: 0, confirmLive: false, sleep: async () => {},
@@ -785,7 +785,7 @@ test('stopping keepalive lets the lease revert the override', async () => {
       clock.advance(10 * 1000);
       await runner.tick();
     }
-    const uuid = model.equipment[0].points.cooling_valve_command.uuid;
+    const uuid = model.equipment[0].points.cooling_valve_position_command.uuid;
     assert.equal((await client.readPriorityArray({ uuid }))[7], 0);
     clock.advance(121 * 1000);
     assert.equal((await client.readPriorityArray({ uuid }))[7], null);

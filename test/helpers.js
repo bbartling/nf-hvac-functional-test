@@ -4,15 +4,15 @@ const READ_ROLES = [
   'discharge_air_temperature',
   'mixed_air_temperature',
   'return_air_temperature',
-  'outside_air_temperature',
-  'duct_static_pressure',
-  'supply_fan_run_status',
+  'outdoor_air_intake_temperature',
+  'discharge_air_static_pressure',
+  'supply_fan_operating_status',
 ];
 
 const WRITE_ROLES = [
-  'outside_air_damper_command',
-  'cooling_valve_command',
-  'heating_valve_command',
+  'outdoor_air_intake_damper_position_command',
+  'cooling_valve_position_command',
+  'heating_valve_position_command',
 ];
 
 /**

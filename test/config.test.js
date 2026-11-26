@@ -30,10 +30,10 @@ test('example config validates and stays in dry-run', () => {
   assert.equal(result.config.logging.mode, 'shadow');
   assert.equal(result.config.limits.max_sample_age_s, 120);
   const writes = writableAllowList(result.config).map((entry) => entry.role);
-  assert.ok(writes.includes('outside_air_damper_command'));
+  assert.ok(writes.includes('outdoor_air_intake_damper_position_command'));
   assert.ok(!writes.includes('supply_fan_command'));
-  assert.equal(isOnAllowList(result.config, 'ahu_a', 'heating_valve_command'), true);
-  assert.equal(isOnAllowList(result.config, 'ahu_a', 'supply_fan_run_status'), false);
+  assert.equal(isOnAllowList(result.config, 'ahu_a', 'heating_valve_position_command'), true);
+  assert.equal(isOnAllowList(result.config, 'ahu_a', 'supply_fan_operating_status'), false);
 });
 
 test('defaults dry-run on and priority 8', () => {
@@ -93,24 +93,24 @@ test('writable allow-list rejects read roles and ignores a missing write flag', 
   if (!rejected.ok) assert.equal(hasCode(rejected.errors, 'writable_not_allowed'), true);
 
   const missingFlag = minimalInput();
-  delete missingFlag.equipment[0].points.cooling_valve_command.writable;
+  delete missingFlag.equipment[0].points.cooling_valve_position_command.writable;
   const optionalWrite = validateSiteConfig(missingFlag);
   assert.equal(optionalWrite.ok, true);
-  if (optionalWrite.ok) assert.equal(isOnAllowList(optionalWrite.config, 'ahu_a', 'cooling_valve_command'), false);
+  if (optionalWrite.ok) assert.equal(isOnAllowList(optionalWrite.config, 'ahu_a', 'cooling_valve_position_command'), false);
 
   const optional = minimalInput();
-  optional.equipment[0].points.return_air_damper_command = point(41);
+  optional.equipment[0].points.return_damper_position_command = point(41);
   const ok = validateSiteConfig(optional);
   assert.equal(ok.ok, true);
-  if (ok.ok) assert.equal(isOnAllowList(ok.config, 'ahu_a', 'return_air_damper_command'), false);
+  if (ok.ok) assert.equal(isOnAllowList(ok.config, 'ahu_a', 'return_damper_position_command'), false);
 });
 
 test('write roles may be absent from config; the model planner decides the steps', () => {
   const input = minimalInput();
   input.plan = { ahu_strategy: 'mode_point' };
-  delete input.equipment[0].points.outside_air_damper_command;
-  delete input.equipment[0].points.cooling_valve_command;
-  delete input.equipment[0].points.heating_valve_command;
+  delete input.equipment[0].points.outdoor_air_intake_damper_position_command;
+  delete input.equipment[0].points.cooling_valve_position_command;
+  delete input.equipment[0].points.heating_valve_position_command;
   assert.equal(validateSiteConfig(input).ok, true);
 
   const vav = minimalInput();
@@ -212,11 +212,11 @@ test('cross-field rules', () => {
 
 test('query binding is accepted and a point cannot carry both uuid and query', () => {
   const input = minimalInput();
-  input.equipment[0].points.outside_air_relative_humidity = {
+  input.equipment[0].points.outdoor_air_intake_relative_humidity = {
     query: { equip_ref: 'ahu_a', markers: ['outside', 'air', 'humidity'] },
   };
   assert.equal(validateSiteConfig(input).ok, true);
-  input.equipment[0].points.outside_air_relative_humidity = {
+  input.equipment[0].points.outdoor_air_intake_relative_humidity = {
     uuid: uuid(80),
     layer: 'hpl:bacnet:1',
     query: { equip_ref: 'ahu_a' },
@@ -262,13 +262,13 @@ test('semantic rules outside the schema', () => {
   if (!duplicated.ok) assert.equal(hasCode(duplicated.errors, 'duplicate_equipment'), true);
 
   const misplaced = minimalInput();
-  misplaced.equipment[0].points.flush_mode_command = point(91);
+  misplaced.equipment[0].points.purge_operating_mode_command = point(91);
   const placed = validateSiteConfig(misplaced);
   assert.equal(placed.ok, false);
   if (!placed.ok) assert.equal(hasCode(placed.errors, 'role_equipment'), true);
 
   const bare = minimalInput();
-  delete bare.equipment[0].points.duct_static_pressure.layer;
+  delete bare.equipment[0].points.discharge_air_static_pressure.layer;
   const bareResult = validateSiteConfig(bare);
   assert.equal(bareResult.ok, false);
   if (!bareResult.ok) assert.equal(hasCode(bareResult.errors, 'binding_shape'), true);

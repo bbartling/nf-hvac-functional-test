@@ -31,8 +31,8 @@ async function rig() {
   const fake = await createFake();
   fake.seedAhu({
     points: {
-      outside_air_damper_command: UUID,
-      cooling_valve_command: OTHER,
+      outdoor_air_intake_damper_position_command: UUID,
+      cooling_valve_position_command: OTHER,
     },
   });
   const client = new NfClient({ baseUrl: fake.baseUrl, sleep: async () => {} });
