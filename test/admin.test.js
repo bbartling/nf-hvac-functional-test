@@ -7,6 +7,7 @@ const http = require('node:http');
 const { createFake } = require('./fake/server');
 const { NfClient } = require('../lib/nf/client');
 const { adminAction, createSession, tick, bindRelease } = require('../lib/admin');
+const { readStatus, abortRequest, readAbort } = require('../lib/status_page');
 const onTick = require('../hooks/tick');
 const onRequest = require('../hooks/admin');
 
@@ -108,9 +109,12 @@ test('admin actions validate, discover, start, abort, and acknowledge', async ()
 
 test('the status page lists the operator fields and serves', async () => {
   const html = fs.readFileSync('static/index.html', 'utf8');
-  for (const id of ['state', 'step', 'time-left', 'overrides', 'interlocks', 'release', 'capability', 'abort', 'dry-run-banner']) {
+  for (const id of ['state', 'step', 'time-left', 'overrides', 'interlocks', 'release', 'capability', 'abort', 'dry-run-banner', 'unknown-banner']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
+  assert.match(html, /status unknown/);
+  assert.match(html, /\/api\/v1\/hooks\/admin\/invoke/);
+  assert.match(html, /dry_run !== true/);
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end(html);
@@ -126,6 +130,40 @@ test('the status page lists the operator fields and serves', async () => {
     assert.equal(reply.status, 200);
     assert.match(body, /Dry-run is on/);
     assert.match(body, /Abort/);
+    const unknown = await readStatus(null);
+    assert.equal(unknown.state, 'status unknown');
+    assert.equal(unknown.show_dry_run, false);
+    const live = await readStatus({ ok: true, async json() { return { state: 'STEP', dry_run: false }; } });
+    assert.equal(live.show_dry_run, false);
+    const dry = await readStatus({ ok: true, async json() { return { state: 'STEP', dry_run: true }; } });
+    assert.equal(dry.show_dry_run, true);
+    const call = abortRequest();
+    const seen = await new Promise((resolve) => {
+      const hook = http.createServer((req, res) => {
+        let raw = '';
+        req.on('data', (chunk) => { raw += chunk; });
+        req.on('end', () => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, state: 'RELEASING' }));
+          resolve({ method: req.method, url: req.url, body: JSON.parse(raw) });
+        });
+      });
+      hook.listen(0, '127.0.0.1', async () => {
+        const address = hook.address();
+        const hookPort = typeof address === 'object' && address ? address.port : 0;
+        const reply = await fetch(`http://127.0.0.1:${hookPort}${call.url}`, {
+          method: call.method,
+          headers: call.headers,
+          body: JSON.stringify(call.body),
+        });
+        const parsed = await readAbort(reply);
+        assert.equal(parsed.release, 'RELEASING');
+        hook.close();
+      });
+    });
+    assert.equal(seen.method, 'POST');
+    assert.equal(seen.url, '/api/v1/hooks/admin/invoke');
+    assert.deepEqual(seen.body, { args: { action: 'abort' } });
   } finally {
     await new Promise((resolve) => server.close(() => resolve(undefined)));
   }
