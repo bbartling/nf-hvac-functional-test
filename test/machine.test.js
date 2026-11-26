@@ -11,6 +11,20 @@ const steps = [
   { step_id: 'recovery', hold_ms: 0, writes: [] },
 ];
 
+test('a vav step with boxes writes even without a fleet default', () => {
+  const vavSteps = [{
+    step_id: 'vav.max_cool',
+    hold_ms: 1000,
+    writes: [],
+    boxes: [{ equipment_id: 'vav_01', strategy: 'airflow_setpoint' }],
+  }];
+  let state = next(createState(), { type: 'START', now: 0, runId: 'run_vav', steps: vavSteps }).state;
+  state = next(state, { type: 'PRECHECK_OK', now: 0 }).state;
+  assert.equal(state.stepWritten, false);
+  const wrote = next(state, { type: 'TICK', now: 0 });
+  assert.equal(wrote.effects.some((effect) => effect.type === 'write'), true);
+});
+
 test('the machine releases on abort, timeout, comm loss, and a failed release', () => {
   let state = createState();
   assert.deepEqual(next(state, { type: 'ABORT' }).effects, []);
