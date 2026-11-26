@@ -599,9 +599,13 @@ test('a vav discharge temperature does not mask the ahu interlock', async () => 
   const ahuDat = model.equipment[0].points.discharge_air_temperature;
   fake.points.get(ahuDat.uuid).derive = () => 2;
   fake.points.set(vavUuid, new DeviceObject({ uuid: vavUuid, layer: LAYER, type: 'ai', relinquish: 30 }));
-  await runner.start('scope');
-  await runner.tick();
-  assert.match(runner.state.reason, /discharge_air_low/);
+  try {
+    await runner.start('scope');
+    await runner.tick();
+    assert.match(runner.state.reason, /discharge_air_low/);
+  } finally {
+    await fake.close();
+  }
 });
 
 test('a 20 minute recirc hold completes inside a 5 minute lease', async () => {
