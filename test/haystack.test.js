@@ -127,6 +127,13 @@ test('class and comma-separated markers are tags, including Haystack 4 names', (
   assert.equal(vav.equipment[0].points.discharge_air_temperature, undefined);
   assert.equal(vav.rejected[0].role, 'discharge_air_temperature');
 
+  const dashed = roleOf({
+    uuid: '00000000-0000-4000-8000-000000000205',
+    layer: 'hpl:bacnet:1',
+    attrs: { class: 'discharge-air-temp-sensor', equipRef: 'ahu_a' },
+  });
+  assert.equal(dashed.points.discharge_air_temperature.role, 'discharge_air_temperature');
+
   const damper = roleOf(tagged(['outside', 'damper', 'cmd', 'writable']));
   assert.equal(damper.points.outside_air_damper_command.role, 'outside_air_damper_command');
   const withAir = roleOf(tagged(['outside', 'air', 'damper', 'cmd', 'writable']));
