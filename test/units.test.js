@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { convertToSi } = require('../lib/units');
+const { convertToSi, convertFromSi, deviceNumber } = require('../lib/units');
 
 test('converts common unit tokens to SI', () => {
   const temp = convertToSi(32, 'degF', 'degC');
@@ -16,6 +16,16 @@ test('converts common unit tokens to SI', () => {
   if (pressure.ok) assert.ok(pressure.value > 249 && pressure.value < 250);
   assert.deepEqual(convertToSi(21.5, 'degC', 'degC'), { ok: true, value: 21.5, unit: 'degC' });
   assert.deepEqual(convertToSi(10, 'L/s', 'm3/s'), { ok: true, value: 0.01, unit: 'm3/s' });
+});
+
+test('writes convert SI back to the device unit', () => {
+  const fahrenheit = convertFromSi(0, 'degF', 'degC');
+  assert.equal(fahrenheit.ok, true);
+  if (fahrenheit.ok) assert.ok(Math.abs(fahrenheit.value - 32) < 1e-9);
+  const flow = deviceNumber({ role: 'discharge_air_flow', unit: 'cfm' }, 0.4);
+  assert.equal(flow.ok, true);
+  if (flow.ok && typeof flow.value === 'number') assert.ok(Math.abs(flow.value - (0.4 / 0.0004719474432)) < 1e-6);
+  assert.deepEqual(deviceNumber({ role: 'duct_static_pressure', unit: 'furlong' }, 10), { ok: false, reason: 'unknown_unit' });
 });
 
 test('unknown or mismatched units fail closed', () => {

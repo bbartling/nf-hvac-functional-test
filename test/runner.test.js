@@ -574,6 +574,39 @@ test('two hundred random faults leave no override behind', async () => {
   }
 });
 
+test('imperial readings trip the SI interlocks', async () => {
+  /** @type {{ close: () => Promise<void> }[]} */
+  const opened = [];
+  try {
+    const cold = await world();
+    opened.push(cold.fake);
+    const discharge = cold.model.equipment[0].points.discharge_air_temperature;
+    discharge.unit = 'degF';
+    cold.fake.points.get(discharge.uuid).derive = () => 40;
+    await cold.runner.start('degf');
+    await cold.runner.tick();
+    assert.match(cold.runner.state.reason, /discharge_air_low/);
+
+    const pressure = await world();
+    opened.push(pressure.fake);
+    const duct = pressure.model.equipment[0].points.duct_static_pressure;
+    duct.unit = 'inH2O';
+    pressure.fake.points.get(duct.uuid).derive = () => 5;
+    await pressure.runner.start('inh2o');
+    await pressure.runner.tick();
+    assert.match(pressure.runner.state.reason, /duct_static_high/);
+
+    const unknown = await world();
+    opened.push(unknown.fake);
+    unknown.model.equipment[0].points.duct_static_pressure.unit = 'furlong';
+    await unknown.runner.start('unknown');
+    await unknown.runner.tick();
+    assert.match(unknown.runner.state.reason, /unknown_unit:duct_static_pressure/);
+  } finally {
+    for (const fake of opened) await fake.close();
+  }
+});
+
 test('a vav discharge temperature does not mask the ahu interlock', async () => {
   const { fake, runner, model } = await world();
   const vavUuid = '00000000-0000-4000-8000-000000000099';
