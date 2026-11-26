@@ -2,7 +2,7 @@
 
 A Normal Framework (NF) app that runs automated HVAC functional tests on air handling units (AHUs), with an optional VAV max-cooling-airflow step. It overrides equipment into defined test states, captures higher-rate data tagged with run and step IDs, and always releases every override it wrote.
 
-> Status: design stage. See [docs/DESIGN.md](docs/DESIGN.md). Nothing in this repository writes to equipment until v0.1 is built, and even then dry-run is the default.
+> Status: v0.1 is implemented. Dry-run is the default. See [docs/INSTALL.md](docs/INSTALL.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## What it does
 
@@ -34,6 +34,10 @@ Site policy is validated against `schema/site-config.schema.json`. See `examples
 ## Documents
 
 - [docs/DESIGN.md](docs/DESIGN.md): sequence, state machine, config schema, data logging, safety, NF integration, test plan.
+- [docs/INSTALL.md](docs/INSTALL.md): install from git, options, and the recommended write guardrail.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md): dry-run rehearsal, lab checklist, and `NEEDS_ATTENTION`.
+- [docs/sql-examples.md](docs/sql-examples.md): label trends with manifest step windows.
+- [docs/DECISIONS.md](docs/DECISIONS.md): departures from the design.
 - [docs/CURSOR_PROMPT.md](docs/CURSOR_PROMPT.md): build prompt for a Cursor cloud agent (v0.1).
 
 ## License

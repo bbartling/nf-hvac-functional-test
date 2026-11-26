@@ -1,0 +1,14 @@
+{
+  "name": "tick",
+  "entry": "hooks/tick.js",
+  "mode": "MODE_RRULE",
+  "rrule": "FREQ=SECONDLY;INTERVAL=10",
+  "invokeTimeout": "8s",
+  "globals": [
+    "ftest_state",
+    "ftest_step_index",
+    "ftest_run_seq",
+    "ftest_overrides_active",
+    "ftest_needs_attention"
+  ]
+}

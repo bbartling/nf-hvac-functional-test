@@ -1,0 +1,5 @@
+{
+  "name": "admin",
+  "entry": "hooks/admin.js",
+  "mode": "MODE_ON_REQUEST"
+}
