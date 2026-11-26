@@ -49,9 +49,14 @@ function modelFor(extra = {}) {
   ];
   /** @type {any[]} */
   const equipment = [{ id: 'ahu_a', type: 'ahu', tags: ['ahu'] }];
-  if (extra.zone) {
+  if (extra.zone || extra.flow) {
     equipment.push({ id: 'vav_01', type: 'vav', tags: ['vav'], ahuRef: 'ahu_a' });
     points.push(point('vav_01', ['zone', 'air', 'temp', 'sensor'], 12, false));
+  }
+  if (extra.flow) {
+    points.push(point('vav_01', ['air', 'flow', 'sensor'], 14, false));
+    points.push(point('vav_01', ['max', 'air', 'flow', 'sp'], 15, false));
+    points.push(point('vav_01', ['air', 'flow', 'sp'], 16, true));
   }
   if (extra.mode) points.push(point('ahu_a', ['ahu', 'test', 'mode', 'cmd'], 13, true));
   return loadHaystackModel({ equipment, points });
@@ -830,6 +835,82 @@ test('a missing command priority does not invent the documented default', async 
     assert.equal(await client.readCommandPriority(), null);
   } finally {
     await hidden.close();
+  }
+});
+
+test('a kill during vav max cooling releases the live slot', async () => {
+  const rig = await world({
+    model: { flow: true },
+    config: {
+      plan: {
+        steps: [
+          { step_id: 'ahu.baseline', hold_minutes: 0 },
+          { step_id: 'ahu.recirc', enabled: false },
+          { step_id: 'ahu.economizer', enabled: false },
+          { step_id: 'vav.max_cool', enabled: true, hold_minutes: 30 },
+          { step_id: 'recovery', hold_minutes: 0 },
+        ],
+      },
+      vav_test: { strategy: 'airflow_setpoint', min_capable_boxes: 1 },
+    },
+  });
+  try {
+    await rig.runner.start('run_vav_kill');
+    let guard = 0;
+    while (rig.runner.state.phase !== 'STEP' && guard < 8) {
+      await rig.runner.tick();
+      guard += 1;
+    }
+    assert.equal(rig.runner.state.phase, 'STEP');
+    assert.equal(rig.runner.state.steps[rig.runner.state.stepIndex].step_id, 'vav.max_cool');
+    const restarted = new Runner({
+      client: rig.client,
+      ledger: rig.ledger,
+      config: rig.config,
+      plan: rig.plan,
+      model: rig.model,
+      clock: rig.clock,
+      fanOnMs: 0,
+      confirmLive: false,
+      sleep: async () => {},
+    });
+    await restarted.recover();
+    assert.equal(rig.ledger.openOverrides().length, 0);
+  } finally {
+    await rig.fake.close();
+  }
+});
+
+test('a fault after later ticks with VAV enabled still releases', async () => {
+  const rig = await world({
+    model: { flow: true },
+    config: {
+      plan: {
+        steps: [
+          { step_id: 'ahu.baseline', hold_minutes: 0 },
+          { step_id: 'ahu.recirc', enabled: false },
+          { step_id: 'ahu.economizer', enabled: false },
+          { step_id: 'vav.max_cool', enabled: true, hold_minutes: 30 },
+          { step_id: 'recovery', hold_minutes: 0 },
+        ],
+      },
+      vav_test: { strategy: 'airflow_setpoint', min_capable_boxes: 1 },
+    },
+  });
+  try {
+    await rig.runner.start('run_vav_late');
+    for (let tick = 0; tick < 6; tick += 1) {
+      rig.clock.advance(10 * 1000);
+      await rig.runner.tick();
+    }
+    assert.equal(rig.runner.state.steps[rig.runner.state.stepIndex].step_id, 'vav.max_cool');
+    const duct = rig.model.equipment[0].points.discharge_air_static_pressure.uuid;
+    rig.fake.points.get(duct).presentOverride = 4000;
+    await rig.runner.tick();
+    assert.match(rig.runner.state.reason, /^interlock:/);
+    assert.equal(rig.ledger.openOverrides().length, 0);
+  } finally {
+    await rig.fake.close();
   }
 });
 
