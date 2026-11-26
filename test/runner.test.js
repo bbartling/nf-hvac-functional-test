@@ -1,0 +1,575 @@
+'use strict';
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { createFake } = require('./fake/server');
+const { VirtualClock } = require('./fake/clock');
+const { NfClient } = require('../lib/nf/client');
+const { Ledger } = require('../lib/ledger');
+const { loadHaystackModel } = require('../lib/model');
+const { buildPlan } = require('../lib/plan');
+const { applyDefaults } = require('../lib/config/defaults');
+const { Runner, runnableSteps } = require('../lib/runner');
+const { next } = require('../lib/machine');
+const { shadowUuid } = require('../lib/sampler');
+
+const LAYER = 'hpl:bacnet:1';
+
+/**
+ * @param {string} equip
+ * @param {string[]} tags
+ * @param {number} n
+ * @param {boolean} writable
+ */
+function point(equip, tags, n, writable) {
+  /** @type {Record<string, string>} */
+  const attrs = { equipRef: equip, class: 'point', markers: tags.join(',') };
+  if (writable) attrs.writable = 'm:';
+  const hex = n.toString(16).padStart(12, '0');
+  return { uuid: `00000000-0000-4000-8000-${hex}`, layer: LAYER, attrs };
+}
+
+function modelFor(extra = {}) {
+  const points = [
+    point('ahu_a', ['discharge', 'air', 'temp', 'sensor'], 1, false),
+    point('ahu_a', ['mixed', 'air', 'temp', 'sensor'], 2, false),
+    point('ahu_a', ['return', 'air', 'temp', 'sensor'], 3, false),
+    point('ahu_a', ['outside', 'air', 'temp', 'sensor'], 4, false),
+    point('ahu_a', ['ductStatic', 'sensor'], 5, false),
+    point('ahu_a', ['supply', 'fan', 'run'], 6, false),
+    point('ahu_a', ['cool', 'valve', 'cmd'], 7, true),
+    point('ahu_a', ['heat', 'valve', 'cmd'], 8, true),
+    point('ahu_a', ['outside', 'damper', 'cmd'], 9, true),
+    point('ahu_a', ['freezeStat'], 10, false),
+    point('ahu_a', ['smoke', 'alarm'], 11, false),
+  ];
+  /** @type {any[]} */
+  const equipment = [{ id: 'ahu_a', type: 'ahu', tags: ['ahu'] }];
+  if (extra.zone) {
+    equipment.push({ id: 'vav_01', type: 'vav', tags: ['vav'], ahuRef: 'ahu_a' });
+    points.push(point('vav_01', ['zone', 'air', 'temp', 'sensor'], 12, false));
+  }
+  if (extra.mode) points.push(point('ahu_a', ['ahu', 'test', 'mode', 'cmd'], 13, true));
+  return loadHaystackModel({ equipment, points });
+}
+
+/**
+ * @param {Record<string, unknown>} [extra]
+ */
+function configFor(extra = {}) {
+  return applyDefaults({
+    version: 1,
+    dry_run: false,
+    ...extra,
+    write: {
+      backend: 'nf_command',
+      bacnet_priority: 8,
+      command_lease_s: 300,
+      release_retries: 1,
+      release_backoff_s: [1, 1],
+      ...(extra.write || {}),
+    },
+    plan: {
+      ahu_strategy: 'per_point',
+      steps: [
+        { step_id: 'ahu.baseline', hold_minutes: 0 },
+        { step_id: 'ahu.recirc', hold_minutes: 0 },
+        { step_id: 'ahu.economizer', hold_minutes: 0 },
+        { step_id: 'vav.max_cool', enabled: false, hold_minutes: 0 },
+        { step_id: 'recovery', hold_minutes: 0 },
+      ],
+      ...(extra.plan || {}),
+    },
+    logging: { mode: 'shadow', ...(extra.logging || {}) },
+    limits: { max_total_minutes: 150, max_tick_gap_s: 60, max_comm_failures: 3, ...(extra.limits || {}) },
+  });
+}
+
+/**
+ * @param {any} model
+ * @param {any} fake
+ */
+function seed(model, fake) {
+  const { DeviceObject } = require('./fake/device');
+  /** @type {Record<string, string>} */
+  const ids = {};
+  for (const point of Object.values(model.equipment[0].points)) {
+    const typed = /** @type {any} */ (point);
+    ids[typed.role] = typed.uuid;
+  }
+  fake.seedAhu({
+    points: ids,
+    oat: 12,
+    rat: 24,
+    rh: 40,
+    fanOn: true,
+  });
+  for (const equipment of model.equipment) {
+    for (const point of Object.values(equipment.points)) {
+      const typed = /** @type {any} */ (point);
+      if (fake.points.has(typed.uuid)) continue;
+      const binary = typed.role.endsWith('status') || typed.role.includes('alarm');
+      fake.points.set(typed.uuid, new DeviceObject({
+        uuid: typed.uuid,
+        layer: LAYER,
+        type: typed.writable ? 'ao' : 'ai',
+        relinquish: binary ? false : 22,
+        unit: binary ? 'bool' : '',
+        role: typed.role,
+      }));
+    }
+  }
+}
+
+async function world(extra = {}) {
+  const clock = new VirtualClock(Date.parse('2026-01-01T00:00:00Z'));
+  const fake = await createFake({ clock });
+  const model = modelFor(extra.model || {});
+  seed(model, fake);
+  const config = configFor(extra.config || {});
+  const plan = buildPlan(model, config);
+  const client = new NfClient({ baseUrl: fake.baseUrl, sleep: async () => {} });
+  const ledger = new Ledger(fs.mkdtempSync(path.join(os.tmpdir(), 'run-')));
+  const runner = new Runner({
+    client,
+    ledger,
+    config,
+    plan,
+    model,
+    clock,
+    fanOnMs: 0,
+    confirmLive: extra.confirmLive !== false,
+    sampleAgeS: extra.sampleAgeS || 0,
+    sleep: async () => {},
+  });
+  return { clock, fake, model, config, plan, client, ledger, runner };
+}
+
+async function slotsClear(client, model) {
+  for (const equipment of model.equipment) {
+    for (const point of Object.values(equipment.points)) {
+      const typed = /** @type {any} */ (point);
+      if (!typed.writable) continue;
+      const array = await client.readPriorityArray({ uuid: typed.uuid });
+      if (!array) continue;
+      assert.equal(array[7], null);
+    }
+  }
+}
+
+test('a full ahu plan releases, and dry-run writes nothing', async () => {
+  const live = await world({ model: { zone: true } });
+  try {
+    assert.equal(live.plan.ready, true);
+    await live.runner.start('run_live');
+    let guard = 0;
+    while (!['COMPLETE', 'FAILED', 'ABORTED', 'NEEDS_ATTENTION'].includes(live.runner.state.phase) && guard < 20) {
+      await live.runner.tick();
+      guard += 1;
+    }
+    assert.equal(live.runner.state.phase, 'COMPLETE');
+    assert.equal(live.runner.manifest.release.all_verified, true);
+    await slotsClear(live.client, live.model);
+    assert.equal((await live.client.listCommands()).commands.length, 0);
+    for (const sample of live.runner.manifest.samples) {
+      const window = live.runner.manifest.steps.find((step) => step.index === sample.step_index && !step.skipped);
+      assert.ok(window);
+      const ts = sample.ts;
+      assert.ok(ts >= Date.parse(window.started_at));
+      assert.ok(ts <= Date.parse(window.ended_at));
+    }
+    assert.equal(shadowUuid('ftest_run_seq'), shadowUuid('ftest_run_seq'));
+  } finally {
+    await live.fake.close();
+  }
+
+  const dry = await world({ config: { dry_run: true }, confirmLive: false });
+  try {
+    let writes = 0;
+    dry.client.writeInCommand = async () => { writes += 1; return { writes: [], errors: [] }; };
+    dry.client.bacnetWrite = async () => { writes += 1; return { results: [], errors: [] }; };
+    await dry.runner.start('run_dry');
+    let guard = 0;
+    while (dry.runner.state.phase !== 'COMPLETE' && guard < 20) {
+      await dry.runner.tick();
+      guard += 1;
+    }
+    assert.equal(dry.runner.state.phase, 'COMPLETE');
+    assert.equal(writes, 0);
+    assert.ok(dry.runner.manifest.overrides.every((item) => item.dry_run === true));
+  } finally {
+    await dry.fake.close();
+  }
+});
+
+test('abort releases at each phase, and faults release what was written', async () => {
+  const phases = ['PRECHECK', 'BASELINE', 'STEP', 'RECOVERY', 'RELEASING'];
+  for (const phase of phases) {
+    const rig = await world();
+    try {
+      if (phase === 'PRECHECK') {
+        const steps = runnableSteps(rig.plan, rig.config);
+        rig.runner.apply(next(rig.runner.state, { type: 'START', now: rig.clock.now(), runId: 'pre', steps }));
+      } else if (phase === 'BASELINE') {
+        await rig.runner.start('base');
+      } else if (phase === 'STEP') {
+        await rig.runner.start('step');
+        await rig.runner.tick();
+      } else if (phase === 'RECOVERY') {
+        await rig.runner.start('rec');
+        let guard = 0;
+        while (rig.runner.state.phase !== 'RECOVERY' && guard < 20) {
+          await rig.runner.tick();
+          guard += 1;
+        }
+      } else {
+        await rig.runner.start('rel');
+        rig.runner.state.phase = 'RELEASING';
+      }
+      assert.equal(rig.runner.state.phase, phase);
+      await rig.runner.abort();
+      assert.equal(rig.runner.state.phase, 'ABORTED');
+      await slotsClear(rig.client, rig.model);
+      assert.equal((await rig.client.listCommands()).commands.length, 0);
+    } finally {
+      await rig.fake.close();
+    }
+  }
+
+  const fault = await world();
+  try {
+    await fault.runner.start('fault');
+    await fault.runner.tick();
+    await fault.runner.tick();
+    assert.equal(fault.runner.state.stepWritten, true);
+    const damper = fault.model.equipment[0].points.outside_air_damper_command.uuid;
+    fault.fake.points.get(damper).slots[3] = 7;
+    await fault.runner.tick();
+    assert.equal(fault.runner.state.reason, 'interlock:override_conflict');
+    assert.equal((await fault.client.readPriorityArray({ uuid: damper }))[7], null);
+    assert.equal((await fault.client.readPriorityArray({ uuid: damper }))[2], 7);
+
+    const boom = await world();
+    const real = boom.runner.writer.write.bind(boom.runner.writer);
+    let calls = 0;
+    boom.runner.writer.write = async (spec) => {
+      calls += 1;
+      if (calls === 2) throw new Error('boom');
+      return real(spec);
+    };
+    await boom.runner.start('boom');
+    let guard = 0;
+    while (!['FAILED', 'ABORTED', 'COMPLETE', 'NEEDS_ATTENTION'].includes(boom.runner.state.phase) && guard < 10) {
+      await boom.runner.tick();
+      guard += 1;
+    }
+    assert.equal(boom.runner.state.reason, 'exception');
+    await slotsClear(boom.client, boom.model);
+    await boom.fake.close();
+  } finally {
+    await fault.fake.close();
+  }
+});
+
+test('interlocks, comm loss, tick gap, and timeout all release', async () => {
+  const rig = await world({ model: { zone: true } });
+  try {
+    await rig.runner.start('locks');
+    await rig.runner.tick();
+    await rig.runner.tick();
+    /** @type {[string, (point: any) => void][]} */
+    const cases = [
+      ['duct_static_pressure', (point) => { point.presentOverride = 5000; }],
+      ['discharge_air_temperature', (point) => { point.derive = () => 1; }],
+      ['supply_fan_run_status', (point) => { point.presentOverride = false; }],
+      ['freeze_protection_status', (point) => { point.presentOverride = true; }],
+      ['smoke_alarm_status', (point) => { point.presentOverride = true; }],
+    ];
+    const duct = rig.model.equipment[0].points.duct_static_pressure.uuid;
+    rig.fake.points.get(duct).presentOverride = 5000;
+    await rig.runner.tick();
+    assert.match(rig.runner.state.reason, /^interlock:/);
+    await slotsClear(rig.client, rig.model);
+    for (const [role, plant] of cases) {
+      const again = await world({ model: { zone: true } });
+      try {
+        await again.runner.start(`lock_${role}`);
+        await again.runner.tick();
+        await again.runner.tick();
+        const uuid = again.model.equipment[0].points[role].uuid;
+        plant(again.fake.points.get(uuid));
+        await again.runner.tick();
+        assert.equal(again.runner.state.phase, 'FAILED');
+        await slotsClear(again.client, again.model);
+      } finally {
+        await again.fake.close();
+      }
+    }
+  } finally {
+    await rig.fake.close();
+  }
+
+  const zone = await world({
+    model: { zone: true },
+    config: { plan: { steps: [
+      { step_id: 'ahu.baseline', hold_minutes: 30 },
+      { step_id: 'recovery', hold_minutes: 0 },
+    ] } },
+  });
+  try {
+    await zone.runner.start('zone');
+    const uuid = zone.model.equipment.find((item) => item.id === 'vav_01').points.zone_air_temperature.uuid;
+    zone.fake.points.get(uuid).presentOverride = 40;
+    await zone.runner.tick();
+    zone.clock.advance(5 * 60 * 1000);
+    await zone.runner.tick();
+    assert.equal(zone.runner.state.reason, 'interlock:zone_out_of_band');
+  } finally {
+    await zone.fake.close();
+  }
+
+  const stale = await world({ sampleAgeS: 500, config: { limits: { max_sample_age_s: 30 } } });
+  try {
+    await stale.runner.start('stale');
+    await stale.runner.tick();
+    assert.equal(stale.runner.state.reason, 'interlock:stale_data');
+  } finally {
+    await stale.fake.close();
+  }
+
+  const comm = await world();
+  try {
+    await comm.runner.start('comm');
+    comm.client.readPoints = async () => { throw new Error('down'); };
+    await comm.runner.tick();
+    await comm.runner.tick();
+    await comm.runner.tick();
+    assert.equal(comm.runner.state.reason, 'comm_loss');
+    await slotsClear(comm.client, comm.model);
+  } finally {
+    await comm.fake.close();
+  }
+
+  const gap = await world();
+  try {
+    await gap.runner.start('gap');
+    gap.clock.advance(120 * 1000);
+    await gap.runner.tick();
+    assert.equal(gap.runner.state.reason, 'tick_gap');
+    await slotsClear(gap.client, gap.model);
+  } finally {
+    await gap.fake.close();
+  }
+
+  const timed = await world({ config: { limits: { max_total_minutes: 0 } } });
+  try {
+    await timed.runner.start('time');
+    timed.clock.advance(1);
+    await timed.runner.tick();
+    assert.equal(timed.runner.state.reason, 'timeout');
+  } finally {
+    await timed.fake.close();
+  }
+});
+
+test('restart during recirc releases before anything else', async () => {
+  const rig = await world();
+  try {
+    await rig.runner.start('crash');
+    await rig.runner.tick();
+    await rig.runner.tick();
+    assert.equal(rig.runner.state.steps[rig.runner.state.stepIndex].step_id, 'ahu.recirc');
+    const restarted = new Runner({
+      client: rig.client,
+      ledger: rig.ledger,
+      config: rig.config,
+      plan: rig.plan,
+      model: rig.model,
+      clock: rig.clock,
+      fanOnMs: 0,
+      confirmLive: true,
+      sleep: async () => {},
+    });
+    const result = await restarted.recover();
+    assert.equal(result.needsAttention, false);
+    await slotsClear(rig.client, rig.model);
+    assert.equal((await rig.client.listCommands()).commands.length, 0);
+  } finally {
+    await rig.fake.close();
+  }
+});
+
+test('mode point writes the mode value and a hot outside air skips economizer', async () => {
+  const mode = await world({
+    model: { mode: true },
+    config: { plan: { ahu_strategy: 'mode_point' } },
+  });
+  try {
+    await mode.runner.start('mode');
+    await mode.runner.tick();
+    await mode.runner.tick();
+    const uuid = mode.model.equipment[0].points.ahu_test_mode_command.uuid;
+    assert.equal((await mode.client.readPriorityArray({ uuid }))[7], 1);
+    let guard = 0;
+    while (mode.runner.state.phase !== 'COMPLETE' && guard < 20) {
+      await mode.runner.tick();
+      guard += 1;
+    }
+    assert.equal(mode.runner.state.phase, 'COMPLETE');
+  } finally {
+    await mode.fake.close();
+  }
+
+  const hot = await world();
+  try {
+    hot.fake.points.get(hot.model.equipment[0].points.outside_air_temperature.uuid).presentOverride = 30;
+    await hot.runner.start('hot');
+    let guard = 0;
+    while (hot.runner.state.phase !== 'COMPLETE' && guard < 20) {
+      await hot.runner.tick();
+      guard += 1;
+    }
+    assert.equal(hot.runner.state.phase, 'COMPLETE');
+    assert.ok(hot.runner.manifest.steps.some((step) => step.step_id === 'ahu.economizer' && step.skipped));
+  } finally {
+    await hot.fake.close();
+  }
+});
+
+test('boost, fan stability, unbound writes, and vav expansion are explicit', async () => {
+  const rig = await world({ config: { logging: { mode: 'period_boost', max_boosted_points: 2 } } });
+  try {
+    rig.runner.fanOnMs = 10 * 60 * 1000;
+    const blocked = await rig.runner.start('boost');
+    assert.equal(blocked.reason, 'fan_not_stable');
+    assert.ok(rig.ledger.openPeriods().length > 0);
+    rig.runner.state = { ...rig.runner.state, phase: 'NEEDS_ATTENTION', needsAttention: true };
+    await rig.runner.acknowledge();
+    assert.equal(rig.runner.state.phase, 'IDLE');
+    assert.equal(rig.runner.attention, 0);
+    assert.equal(await rig.runner.exec({ type: 'nope' }), null);
+    rig.runner.fanOnMs = 0;
+    rig.runner.state.steps = [{ writes: [{ equipment_id: 'missing', role: 'cooling_valve_command' }] }];
+    const unbound = await rig.runner.precheck();
+    assert.equal(unbound.reason, 'role_unbound:cooling_valve_command');
+    const damper = rig.model.equipment[0].points.outside_air_damper_command;
+    rig.ledger.append({
+      kind: 'active',
+      run_id: 'old',
+      equipment_id: 'ahu_a',
+      uuid: damper.uuid,
+      layer: LAYER,
+      priority: 8,
+      value: 0,
+      backend: 'nf_command',
+      command_name: 'ftest-old-ahu_a',
+    });
+    rig.fake.points.get(damper.uuid).offline = true;
+    const held = await rig.runner.start('held');
+    assert.equal(held.needsAttention, true);
+    const expanded = runnableSteps({
+      equipment_id: 'ahu_a',
+      steps: [{
+        step_id: 'vav.max_cool',
+        status: 'included',
+        writes: [],
+        boxes: [
+          { equipment_id: 'vav_01', strategy: 'bas_toggle' },
+          { equipment_id: 'vav_02', strategy: 'flush_point' },
+          { equipment_id: 'vav_03', strategy: 'airflow_setpoint' },
+          { equipment_id: 'vav_04', strategy: null },
+        ],
+      }, {
+        step_id: 'not_in_config',
+        status: 'included',
+        writes: [{ role: 'cooling_valve_command', value: 0 }],
+      }],
+    }, applyDefaults({ version: 1, vav_test: { airflow_setpoint_default_m3s: 0.4 } }));
+    assert.equal(expanded[0].writes.length, 3);
+    assert.equal(expanded[1].hold_ms, 0);
+  } finally {
+    await rig.fake.close();
+  }
+});
+
+test('two hundred random faults leave no override behind', async () => {
+  const clock = new VirtualClock(Date.parse('2026-01-01T00:00:00Z'));
+  const fake = await createFake({ clock });
+  const model = modelFor({ zone: true });
+  seed(model, fake);
+  const config = configFor();
+  const plan = buildPlan(model, config);
+  const client = new NfClient({ baseUrl: fake.baseUrl, sleep: async () => {} });
+  try {
+    for (let seed = 1; seed <= 200; seed += 1) {
+      const rand = mulberry32(seed);
+      for (const command of [...fake.commands.values()]) {
+        if (command.active) {
+          for (const object of fake.points.values()) object.offline = false;
+          await client.cancelCommand(command.id);
+        }
+      }
+      for (const object of fake.points.values()) {
+        object.offline = false;
+        object.presentOverride = null;
+        if (object.commandable) object.slots.fill(null);
+      }
+      const ledger = new Ledger(fs.mkdtempSync(path.join(os.tmpdir(), 'seed-')));
+      const runner = new Runner({
+        client, ledger, config, plan, model, clock, fanOnMs: 0, confirmLive: true, sleep: async () => {},
+      });
+      const fault = ['abort', 'static', 'offline', 'crash', 'gap'][Math.floor(rand() * 5)];
+      const at = 1 + Math.floor(rand() * 3);
+      await runner.start(`r${seed}`);
+      for (let tick = 0; tick < at && runner.state.phase !== 'COMPLETE'; tick += 1) await runner.tick();
+      if (fault === 'abort') await runner.abort();
+      else if (fault === 'static') {
+        fake.points.get(model.equipment[0].points.duct_static_pressure.uuid).presentOverride = 4000;
+        await runner.tick();
+      } else if (fault === 'offline') {
+        const damper = model.equipment[0].points.outside_air_damper_command.uuid;
+        fake.points.get(damper).offline = true;
+        for (let extra = 0; extra < 4; extra += 1) await runner.tick();
+        fake.points.get(damper).offline = false;
+        if (runner.state.needsAttention) await runner.retryRelease();
+      } else if (fault === 'crash') {
+        const nextRunner = new Runner({
+          client, ledger, config, plan, model, clock, fanOnMs: 0, confirmLive: true, sleep: async () => {},
+        });
+        await nextRunner.recover();
+        if (nextRunner.state.needsAttention) {
+          for (const object of fake.points.values()) object.offline = false;
+          await nextRunner.retryRelease();
+        }
+      } else {
+        clock.advance(120 * 1000);
+        await runner.tick();
+      }
+      if (runner.state.needsAttention) {
+        for (const object of fake.points.values()) object.offline = false;
+        await runner.retryRelease();
+      }
+      await slotsClear(client, model);
+      assert.equal((await client.listCommands()).commands.filter((command) => String(command.name).startsWith('ftest-')).length, 0, `seed ${seed} ${fault}`);
+    }
+  } finally {
+    await fake.close();
+  }
+});
+
+/**
+ * @param {number} seed
+ */
+function mulberry32(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (value + 0x6D2B79F5) >>> 0;
+    let t = value;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
