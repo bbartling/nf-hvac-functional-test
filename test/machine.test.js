@@ -65,6 +65,13 @@ test('economizer skip and a tick gap do not leave the run active', () => {
   assert.equal(skipped.state.steps[skipped.state.stepIndex].step_id, 'recovery');
   const gapped = next({ ...skipped.state, maxTickGapMs: 5, lastTick: 2000 }, { type: 'TICK', now: 3000 });
   assert.equal(gapped.state.reason, 'tick_gap');
+  let released = next(skipped.state, { type: 'RELEASE_OK' });
+  assert.equal(released.state.phase, 'RECOVERY');
+  assert.equal(released.state.recovered, true);
+  released = next(released.state, { type: 'TICK', now: 2000 });
+  assert.equal(released.state.phase, 'RELEASING');
+  released = next(released.state, { type: 'RELEASE_OK' });
+  assert.equal(released.state.phase, 'COMPLETE');
   const failed = next(createState(), { type: 'START', now: 0, runId: 'run_e', steps: [] }).state;
   assert.equal(next(failed, { type: 'PRECHECK_FAILED', reason: 'fan_off' }).state.phase, 'FAILED');
 });
