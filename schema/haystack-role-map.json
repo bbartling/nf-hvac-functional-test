@@ -1,0 +1,344 @@
+{
+  "version": "1.1.0-draft.1",
+  "source": "vendor/roles/openfdd-roles.json",
+  "writable_markers": [
+    "writable"
+  ],
+  "equipment_tags": {
+    "ahu": [
+      "ahu"
+    ],
+    "vav": [
+      "vav"
+    ]
+  },
+  "relationship_tags": [
+    "ahuRef",
+    "airRef",
+    "equipRef"
+  ],
+  "roles": [
+    {
+      "role": "air_smoke_alarm_status",
+      "tags": [
+        "alarm",
+        "sensor",
+        "smoke"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "air_temperature_low_limit_alarm_status",
+      "tags": [
+        "freezeStat",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "cooling_valve_position",
+      "tags": [
+        "cool",
+        "valve",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "cooling_valve_position_command",
+      "tags": [
+        "cool",
+        "valve",
+        "cmd"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "damper_position",
+      "tags": [
+        "damper",
+        "sensor"
+      ],
+      "forbid": [
+        "outside",
+        "return",
+        "exhaust",
+        "economizer",
+        "bypass"
+      ]
+    },
+    {
+      "role": "discharge_air_static_pressure",
+      "tags": [
+        "discharge",
+        "air",
+        "pressure",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "discharge_air_static_pressure_setpoint",
+      "tags": [
+        "discharge",
+        "air",
+        "pressure",
+        "sp"
+      ],
+      "forbid": [
+        "max",
+        "min"
+      ]
+    },
+    {
+      "role": "discharge_air_temperature",
+      "tags": [
+        "discharge",
+        "air",
+        "temp",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "discharge_air_temperature_setpoint",
+      "tags": [
+        "discharge",
+        "air",
+        "temp",
+        "sp"
+      ],
+      "forbid": [
+        "max",
+        "min"
+      ]
+    },
+    {
+      "role": "discharge_air_volume_flow_rate",
+      "tags": [
+        "air",
+        "flow",
+        "sensor"
+      ],
+      "forbid": [
+        "max",
+        "min",
+        "total"
+      ]
+    },
+    {
+      "role": "discharge_air_volume_flow_rate_maximum",
+      "tags": [
+        "max",
+        "air",
+        "flow",
+        "sp"
+      ],
+      "forbid": [
+        "min"
+      ]
+    },
+    {
+      "role": "discharge_air_volume_flow_rate_setpoint",
+      "tags": [
+        "air",
+        "flow",
+        "sp"
+      ],
+      "forbid": [
+        "max",
+        "min",
+        "total"
+      ]
+    },
+    {
+      "role": "heating_valve_position",
+      "tags": [
+        "heat",
+        "valve",
+        "sensor"
+      ],
+      "forbid": [
+        "reheat"
+      ]
+    },
+    {
+      "role": "heating_valve_position_command",
+      "tags": [
+        "heat",
+        "valve",
+        "cmd"
+      ],
+      "forbid": [
+        "reheat"
+      ]
+    },
+    {
+      "role": "maximum_cooling_operating_mode_command",
+      "tags": [
+        "max",
+        "cool",
+        "cmd",
+        "mode"
+      ],
+      "forbid": [
+        "sp",
+        "air",
+        "flow"
+      ]
+    },
+    {
+      "role": "mixed_air_temperature",
+      "tags": [
+        "mixed",
+        "air",
+        "temp",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "outdoor_air_intake_damper_position",
+      "tags": [
+        "outside",
+        "damper",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "outdoor_air_intake_damper_position_command",
+      "tags": [
+        "outside",
+        "damper",
+        "cmd"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "outdoor_air_intake_relative_humidity",
+      "tags": [
+        "outside",
+        "air",
+        "humidity",
+        "sensor"
+      ],
+      "forbid": [
+        "weather"
+      ]
+    },
+    {
+      "role": "outdoor_air_intake_temperature",
+      "tags": [
+        "outside",
+        "air",
+        "temp",
+        "sensor"
+      ],
+      "forbid": [
+        "weather"
+      ]
+    },
+    {
+      "role": "purge_operating_mode_command",
+      "tags": [
+        "purge",
+        "cmd"
+      ],
+      "forbid": [
+        "water"
+      ]
+    },
+    {
+      "role": "return_air_temperature",
+      "tags": [
+        "return",
+        "air",
+        "temp",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "return_damper_position",
+      "tags": [
+        "return",
+        "damper",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "return_damper_position_command",
+      "tags": [
+        "return",
+        "damper",
+        "cmd"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "supply_fan_command",
+      "tags": [
+        "fan",
+        "run",
+        "cmd"
+      ],
+      "forbid": [
+        "return",
+        "exhaust",
+        "pump"
+      ]
+    },
+    {
+      "role": "supply_fan_operating_status",
+      "tags": [
+        "fan",
+        "run",
+        "sensor"
+      ],
+      "forbid": [
+        "return",
+        "exhaust",
+        "pump"
+      ]
+    },
+    {
+      "role": "test_operating_mode_command",
+      "tags": [
+        "cmd",
+        "test",
+        "mode"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "zone_air_temperature",
+      "tags": [
+        "zone",
+        "air",
+        "temp",
+        "sensor"
+      ],
+      "forbid": []
+    },
+    {
+      "role": "zone_air_temperature_setpoint",
+      "tags": [
+        "zone",
+        "air",
+        "temp",
+        "sp"
+      ],
+      "forbid": [
+        "cooling",
+        "heating",
+        "occ",
+        "unocc",
+        "standby",
+        "max",
+        "min"
+      ]
+    }
+  ]
+}

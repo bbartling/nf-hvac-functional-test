@@ -81,14 +81,14 @@ All hold times are configurable. Defaults below. "Settle" is the time at the sta
 | step_id | Purpose | Overrides (roles written) | Default hold | Settle |
 | --- | --- | --- | --- | --- |
 | `ahu.baseline` | Normal operation reference | none | 5 min | 0 |
-| `ahu.recirc` | Full recirculation, coils off | `outside_air_damper_command` = 0 %, `return_air_damper_command` = 100 % (if bound), `cooling_valve_command` = 0 %, `heating_valve_command` = 0 %. Supply fan is not written; it must already be running. | 20 min | 5 min |
-| `ahu.economizer` (conditional) | 100% outside air, coils off | `outside_air_damper_command` = 100 %, `return_air_damper_command` = 0 % (if bound), `cooling_valve_command` = 0 %, `heating_valve_command` = 0 % | 20 min | 5 min |
+| `ahu.recirc` | Full recirculation, coils off | `outdoor_air_intake_damper_position_command` = 0 %, `return_damper_position_command` = 100 % (if bound), `cooling_valve_position_command` = 0 %, `heating_valve_position_command` = 0 %. Supply fan is not written; it must already be running. | 20 min | 5 min |
+| `ahu.economizer` (conditional) | 100% outside air, coils off | `outdoor_air_intake_damper_position_command` = 100 %, `return_damper_position_command` = 0 % (if bound), `cooling_valve_position_command` = 0 %, `heating_valve_position_command` = 0 % | 20 min | 5 min |
 | `vav.max_cool` (optional, section 4) | VAV boxes at max cooling airflow with the AHU held in `ahu.recirc` or `ahu.economizer` | AHU overrides carry over; VAV overrides per strategy | 30 min | 5 min |
 | `recovery` | Overrides released, monitoring continues | none | 10 min | 0 |
 
-Alternative AHU strategy `mode_point`: if the BAS exposes one commandable enumerated or binary point that puts the unit in a test mode (for example "recirculation test"), config maps `ahu_test_mode_command` and the value per step. The app then writes that one point instead of the individual roles. This is the preferred strategy when available because BAS logic keeps its own protections active.
+Alternative AHU strategy `mode_point`: if the BAS exposes one commandable enumerated or binary point that puts the unit in a test mode (for example "recirculation test"), config maps `test_operating_mode_command` and the value per step. The app then writes that one point instead of the individual roles. This is the preferred strategy when available because BAS logic keeps its own protections active.
 
-`ahu.economizer` runs only when all conditions hold at PRECHECK and again at the start of the step: `outside_air_temperature` within `econ_window` (default 10 to 18 degC), `return_air_temperature - outside_air_temperature >= econ_min_delta_k` (default 3 K), `outside_air_relative_humidity <= econ_max_rh` (default 70 %, skipped if the role is unbound), and no freeze interlock active. Otherwise the step is skipped and the skip reason is recorded. When the weather is outside the window (peak heat or cold), the run uses recirculation only.
+`ahu.economizer` runs only when all conditions hold at PRECHECK and again at the start of the step: `outdoor_air_intake_temperature` within `econ_window` (default 10 to 18 degC), `return_air_temperature - outdoor_air_intake_temperature >= econ_min_delta_k` (default 3 K), `outdoor_air_intake_relative_humidity <= econ_max_rh` (default 70 %, skipped if the role is unbound), and no freeze interlock active. Otherwise the step is skipped and the skip reason is recorded. When the weather is outside the window (peak heat or cold), the run uses recirculation only.
 
 ### 3.3 Step order
 
@@ -114,7 +114,7 @@ PRECHECK performs no writes. It fails the run if any of these fail:
 
 1. Config validates against the JSON Schema and every role used by the plan is bound to an NF point that exists.
 2. Capability detection (section 4.2 for VAV, 3.6 for AHU) finds every AHU role the plan writes commandable. Missing optional roles are reported, missing required roles fail.
-3. `supply_fan_run_status` is on (when bound) and has been for at least 5 min.
+3. `supply_fan_operating_status` is on (when bound) and has been for at least 5 min.
 4. All involved sensors have a reading newer than `max_sample_age_s` (default 120 s) and within plausible bounds.
 5. No higher-priority override (lower slot number than ours) is active on any point we will write. Existing overrides at our own priority, from an unknown writer, also fail the run.
 6. No active interlock condition (section 7.5).
@@ -132,7 +132,7 @@ For each AHU role the plan will write:
 4. No slot with number less than ours holds a value, and our slot is empty (or already ours per the ledger).
 5. NF write guardrails (site policy) accept the target value. A guardrail reject at the first write is treated as capability failure for that point.
 
-Failure of a required AHU role fails PRECHECK. Failure of an optional role (for example `return_air_damper_command`) is reported and the step proceeds without it.
+Failure of a required AHU role fails PRECHECK. Failure of an optional role (for example `return_damper_position_command`) is reported and the step proceeds without it.
 
 ## 4. Optional VAV max-cooling-airflow step
 
@@ -146,9 +146,9 @@ Purpose: hold every VAV box at maximum cooling airflow so airflow, damper positi
 
 | Strategy | `vav_test.strategy` | What is written | Capability check |
 | --- | --- | --- | --- |
-| a | `bas_toggle` | One system-level point `vav_max_cooling_mode_command` (binary or enumerated value from config). BAS programming applies max cooling to the boxes. | Point bound, `writable`, commandable. After the write, at least `bas_toggle_min_boxes_responding_pct` (default 60 %) of bound boxes show `discharge_air_flow` rising toward their maximum, or the strategy is reported as `no_effect` and the step ends early. |
-| b | `flush_point` | Per box `flush_mode_command` = on (value from config). | Per box: role bound, commandable. Boxes without it are skipped and listed. |
-| c | `airflow_setpoint` | Per box `cooling_air_flow_setpoint` = the box's `cooling_air_flow_maximum` (read from the controller). If the maximum is not readable, an explicit per-box or default value from config is used. | Per box: setpoint role bound, commandable (priority array present), maximum readable or configured. After the write, readback of the setpoint equals the target within tolerance within `verify_s` (default 30 s), otherwise the controller overwrote or ignored it and the box is `write_not_effective`. |
+| a | `bas_toggle` | One system-level point `maximum_cooling_operating_mode_command` (binary or enumerated value from config). BAS programming applies max cooling to the boxes. | Point bound, `writable`, commandable. After the write, at least `bas_toggle_min_boxes_responding_pct` (default 60 %) of bound boxes show `discharge_air_volume_flow_rate` rising toward their maximum, or the strategy is reported as `no_effect` and the step ends early. |
+| b | `flush_point` | Per box `purge_operating_mode_command` = on (value from config). | Per box: role bound, commandable. Boxes without it are skipped and listed. |
+| c | `airflow_setpoint` | Per box `discharge_air_volume_flow_rate_setpoint` = the box's `discharge_air_volume_flow_rate_maximum` (read from the controller). If the maximum is not readable, an explicit per-box or default value from config is used. | Per box: setpoint role bound, commandable (priority array present), maximum readable or configured. After the write, readback of the setpoint equals the target within tolerance within `verify_s` (default 30 s), otherwise the controller overwrote or ignored it and the box is `write_not_effective`. |
 
 `vav_test.strategy` can also be `auto`: try `bas_toggle` if bound, else `flush_point` if any box has it, else `airflow_setpoint`. Mixed fleets are supported: a `per_box_strategy` order (default `["flush_point", "airflow_setpoint"]`) picks the first strategy a box supports when the strategy is `auto_per_box`.
 
@@ -163,7 +163,7 @@ PRECHECK for the VAV step produces a per-box result and a summary, stored in the
   "boxes_capable": 36,
   "boxes_skipped": [
     { "equipment_id": "vav_17", "reason": "no_priority_array" },
-    { "equipment_id": "vav_21", "reason": "role_unbound:cooling_air_flow_setpoint" },
+    { "equipment_id": "vav_21", "reason": "role_unbound:discharge_air_volume_flow_rate_setpoint" },
     { "equipment_id": "vav_30", "reason": "higher_priority_override_active" },
     { "equipment_id": "vav_33", "reason": "device_offline" }
   ],
@@ -198,37 +198,37 @@ AHU roles:
 | `discharge_air_temperature` | read | degC | yes |
 | `mixed_air_temperature` | read | degC | yes |
 | `return_air_temperature` | read | degC | yes |
-| `outside_air_temperature` | read | degC | yes |
-| `outside_air_relative_humidity` | read | % | no |
+| `outdoor_air_intake_temperature` | read | degC | yes |
+| `outdoor_air_intake_relative_humidity` | read | % | no |
 | `discharge_air_temperature_setpoint` | read | degC | no |
-| `duct_static_pressure` | read | Pa | yes (interlock) |
-| `duct_static_pressure_setpoint` | read | Pa | no |
-| `supply_fan_run_status` | read | bool | yes |
+| `discharge_air_static_pressure` | read | Pa | yes (interlock) |
+| `discharge_air_static_pressure_setpoint` | read | Pa | no |
+| `supply_fan_operating_status` | read | bool | yes |
 | `supply_fan_command` | read | bool or % | no (not written by default) |
-| `outside_air_damper_position` | read | % | no |
-| `return_air_damper_position` | read | % | no |
+| `outdoor_air_intake_damper_position` | read | % | no |
+| `return_damper_position` | read | % | no |
 | `cooling_valve_position` | read | % | no |
 | `heating_valve_position` | read | % | no |
-| `outside_air_damper_command` (`ftest`) | write | % | per strategy |
-| `return_air_damper_command` (`ftest`) | write | % | no |
-| `cooling_valve_command` (`ftest`) | write | % | per strategy |
-| `heating_valve_command` (`ftest`) | write | % | per strategy |
-| `ahu_test_mode_command` (`ftest`) | write | enum | `mode_point` only |
-| `freeze_protection_status` (`ftest`) | read | bool | recommended (interlock) |
-| `smoke_alarm_status` (`ftest`) | read | bool | recommended (interlock) |
-| `vav_max_cooling_mode_command` (`ftest`) | write | bool or enum | `bas_toggle` only |
+| `outdoor_air_intake_damper_position_command` (`ftest`) | write | % | per strategy |
+| `return_damper_position_command` (`ftest`) | write | % | no |
+| `cooling_valve_position_command` (`ftest`) | write | % | per strategy |
+| `heating_valve_position_command` (`ftest`) | write | % | per strategy |
+| `test_operating_mode_command` (`ftest`) | write | enum | `mode_point` only |
+| `air_temperature_low_limit_alarm_status` (`ftest`) | read | bool | recommended (interlock) |
+| `air_smoke_alarm_status` (`ftest`) | read | bool | recommended (interlock) |
+| `maximum_cooling_operating_mode_command` (`ftest`) | write | bool or enum | `bas_toggle` only |
 
 VAV box roles:
 
 | Role | Direction | SI unit |
 | --- | --- | --- |
-| `discharge_air_flow` | read | m3/s |
-| `cooling_air_flow_setpoint` | read/write | m3/s |
-| `cooling_air_flow_maximum` (`ftest`) | read | m3/s |
-| `discharge_air_damper_position` | read | % |
+| `discharge_air_volume_flow_rate` | read | m3/s |
+| `discharge_air_volume_flow_rate_setpoint` | read/write | m3/s |
+| `discharge_air_volume_flow_rate_maximum` (`ftest`) | read | m3/s |
+| `damper_position` | read | % |
 | `zone_air_temperature` | read | degC |
 | `zone_air_temperature_setpoint` | read | degC |
-| `flush_mode_command` (`ftest`) | write | bool or enum |
+| `purge_operating_mode_command` (`ftest`) | write | bool or enum |
 
 Units: the app reads each point's NF `units` and converts to SI for thresholds and logging. A point with an unknown or unconvertible unit is reported and excluded from interlocks that depend on it; if it is a required interlock input the run fails PRECHECK. Imperial values are display-only in the UI.
 
@@ -299,7 +299,7 @@ Stored as the NF app option `siteConfig` (a JSON string; NF app options arrive a
       "type": "ahu",
       "points": {
         "discharge_air_temperature": { "uuid": "…", "layer": "hpl:bacnet:1" },
-        "outside_air_damper_command": { "uuid": "…", "layer": "hpl:bacnet:1", "writable": true }
+        "outdoor_air_intake_damper_position_command": { "uuid": "…", "layer": "hpl:bacnet:1", "writable": true }
       },
       "serves": ["vav_01", "vav_02"]
     },
@@ -307,15 +307,37 @@ Stored as the NF app option `siteConfig` (a JSON string; NF app options arrive a
       "id": "vav_01",
       "type": "vav",
       "points": {
-        "discharge_air_flow": { "uuid": "…", "layer": "hpl:bacnet:1" },
-        "cooling_air_flow_setpoint": { "uuid": "…", "layer": "hpl:bacnet:1", "writable": true }
+        "discharge_air_volume_flow_rate": { "uuid": "…", "layer": "hpl:bacnet:1" },
+        "discharge_air_volume_flow_rate_setpoint": { "uuid": "…", "layer": "hpl:bacnet:1", "writable": true }
       }
     }
   ]
 }
 ```
 
-Point binding options, in order of precedence per role: explicit `uuid`; a Haystack/NF query (`{ "equip_ref": "...", "markers": [...] }`) resolved at PRECHECK to exactly one point (zero or several is a PRECHECK failure, never a guess). `serves` may instead be resolved from `airRef`/`equipRef` relationships when the model has them. A read-only `config discover` operator action proposes a role map from the NF model for review but never saves or writes anything by itself.
+Point binding options, in order of precedence per role: the data model (section 5.3); else an explicit `uuid`; else a Haystack/NF query (`{ "equip_ref": "...", "markers": [...] }`) resolved at PRECHECK to exactly one point (zero or several is a PRECHECK failure, never a guess). `serves` may instead be resolved from `airRef`/`equipRef` relationships when the model has them. A read-only `config discover` operator action proposes a role map from the NF model for review but never saves or writes anything by itself.
+
+### 5.3 Data-model-driven planning
+
+The test plan is not hard-coded per site or per box. `lib/plan.js` is a pure function: internal model plus site policy in, ordered steps and a capability report out. The same planner run on a different model produces a different plan.
+
+Two adapters build the same internal model:
+
+- Haystack tags are the primary input. NF points are read as tag sets and layers. Tags come from a `tags` array, marker values on `attrs` (`m:`, `M`, `marker`, or `true`), and from the `class` and comma-separated `markers` attributes. `equipRef` / `ahuRef` attach the point. `schema/haystack-role-map.json` (version field) maps a tag set to one 223P-derived role. Tag names follow Haystack 4 (`cool` / `heat`, `freezeStat`, `ductStatic`, damper tags without an extra `air` marker). The longest matching tag set wins. A `cmd` marker keeps only roles whose tag set includes `cmd`. If two roles still tie, the point gets no role and is listed on `ambiguous`. Forbidden markers are per role (`max` and `min` on setpoint roles). A site may overlay that file; no code change is required to add a tag set. Role names live only in `lib/roles.js` and this map.
+- RDF/223P is not an input in this build. `loadRdfModel` throws `RdfInputDisabledError` (`rdf_input_disabled`) and does not parse Turtle. The hand-written splitter dropped namespaces, kept local names, under-counted triples, and threw on a real 223P export. `schema/rdf-role-map.json` is gone. Those type names were not 223P or Brick terms, and a shared local name such as `brick:Sensor` and `urn:local:Sensor` must not bind the same role. `matchRoleIri` keeps a role only when exactly one full IRI hits the role table. Haystack remains the path that builds a plan.
+
+Writable versus read-only is a model fact, not a per-box branch. A point is model-writable only when it carries a `writable` marker (a `cmd` or `sp` tag alone is not enough). The role registry still has to allow writes. An explicit config binding must also set `writable: true`; that flag cannot promote a point the model marks read-only. If the model says writable and a later priority-array or readback probe disagrees, the point is skipped with `no_priority_array` or `write_not_effective` and is not written.
+
+Planning rules, applied uniformly:
+
+- `ahu.recirc` runs when the coil commands the strategy needs are model-writable. The outside-air damper command is included when it is model-writable and is not required for recirculation.
+- `ahu.economizer` runs only when that damper command is model-writable (and the coil commands are). Otherwise the step is skipped with `economizer_points_missing`. Weather eligibility is still checked at runtime.
+- Each VAV box gets the first strategy in the configured order that its own points support: `flush_point`, `airflow_setpoint`, or the AHU-level `bas_toggle`. A box with no model-writable strategy is skipped with `model_not_writable` or `role_unbound`. If fewer than `min_capable_boxes` qualify, `vav.max_cool` is skipped with `insufficient_capability`.
+- An interlock is active only when its input point is bound. Sample points are the bound points on the selected AHU and the boxes it serves.
+
+Example tag sets in the shipped Haystack map: `discharge air temp sensor` maps to `discharge_air_temperature`; `air flow sp` plus the `writable` marker maps to `discharge_air_volume_flow_rate_setpoint` with writable true; `air flow max` maps to read-only `discharge_air_volume_flow_rate_maximum`. A point tagged `max` or `min` does not bind to that setpoint. `cool valve cmd` maps to `cooling_valve_position_command`. The airflow setpoint is the point the airflow strategy writes. The maximum is the cap that strategy reads.
+
+RDF stays off the box until two artifacts exist: vendored Oxigraph 0.5.13 (Node build only, the same files as the upstream NF app) and the shared 223P role file plus a precomputed binding. The pin is `schema/shared-role-file.pin.json`. Its role-file sha256 is null while the file is absent. A file at `vendor/roles/shared-223p-roles.ttl` whose sha256 differs from the pin fails the check. The 223P ontology pin is sha256 `08f80bd6e15052f28cdfd354bdf46ff96e5e1afdba36a4dbed5186fc1ea51c41`. QUDT is 3.4.0 via imports. OntoEnv 0.6.4 and Shifty 0.6.0 do not run inside an NF hook: there is no Python on the box, Shifty's WebAssembly build is not a pinned package, and the hook must not fetch an ontology. Validation of example models is a CI job (`rdflib==7.6.0`, `ontoenv==0.6.4`, `pyshifty==0.6.0`) that fails on any Violation. That job is specified in `docs/superpowers/plans/2026-11-26-rdf-alignment.md` and is not enabled until the shared role file and the review that names it have landed. The follow-up also loads the upstream export fixture and requires 122 triples from Oxigraph, and loads the 223P snapshot export without error.
 
 Validation rules (enforced in code and tests): hard-coded identifiers are not allowed in the app source; `bacnet_priority` is an integer 3 to 16; writes require the point flag `writable: true`; every write role must map to a role in the role registry; all thresholds in SI.
 
@@ -357,7 +379,7 @@ Written to `local/runs/<run_id>.json` (and returned by the operator API) during 
       "started_at": "…", "analysis_from": "…", "ended_at": "…",
       "status": "done",                // done | skipped | aborted
       "skip_reason": null,
-      "overrides": [ { "role": "outside_air_damper_command", "value": 0, "priority": 8 } ] }
+      "overrides": [ { "role": "outdoor_air_intake_damper_position_command", "value": 0, "priority": 8 } ] }
   ],
   "overrides": [ { "point": "<uuid>", "value": 0, "priority": 8, "written_at": "…", "released_at": "…", "release_verified": true } ],
   "interlock_events": [],
@@ -413,12 +435,12 @@ Release is idempotent and verified.
 
 Any of these ends the run via RELEASING with reason `interlock:<code>`:
 
-- `duct_static_high`: `duct_static_pressure` above `duct_static_pressure_max_pa`.
+- `duct_static_high`: `discharge_air_static_pressure` above `duct_static_pressure_max_pa`.
 - `mixed_air_low`: `mixed_air_temperature` below `mixed_air_temperature_min_c` while the OA damper command is above 0 (freeze risk).
 - `discharge_air_low`: `discharge_air_temperature` below the limit.
-- `fan_status_lost`: `supply_fan_run_status` off during a step.
-- `freeze_protection`: `freeze_protection_status` true.
-- `smoke_alarm`: `smoke_alarm_status` true.
+- `fan_status_lost`: `supply_fan_operating_status` off during a step.
+- `freeze_protection`: `air_temperature_low_limit_alarm_status` true.
+- `smoke_alarm`: `air_smoke_alarm_status` true.
 - `zone_out_of_band`: median `zone_air_temperature` of the served boxes outside the band for more than 5 min.
 - `stale_data`: a required interlock input older than `max_sample_age_s` for two consecutive samples.
 - `override_conflict`: a point we wrote now shows a different value or a lower-numbered slot written by another writer (an operator took over); the app releases its own writes and stops without fighting.

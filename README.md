@@ -2,7 +2,7 @@
 
 A Normal Framework (NF) app that runs automated HVAC functional tests on air handling units (AHUs), with an optional VAV max-cooling-airflow step. It overrides equipment into defined test states, captures higher-rate data tagged with run and step IDs, and always releases every override it wrote.
 
-> Status: design stage. See [docs/DESIGN.md](docs/DESIGN.md). Nothing in this repository writes to equipment until v0.1 is built, and even then dry-run is the default.
+> Status: v0.1 is implemented. Dry-run is the default. See [docs/INSTALL.md](docs/INSTALL.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## What it does
 
@@ -11,11 +11,33 @@ A Normal Framework (NF) app that runs automated HVAC functional tests on air han
 3. **Data capture.** Samples the involved points at a higher rate during the test window into a dedicated NF layer, and writes a run manifest with step timestamps so SQL tools can label the data. Analysis is out of scope.
 4. **Safety.** Dry-run by default, writes at a configurable BACnet priority (default 8), NF command contexts with a short lease and keepalive, a persisted override ledger, interlocks, and release on end, abort, timeout and restart.
 
-Point roles use ASHRAE 223P-derived snake_case names (same convention as Open-FDD) and a per-site config maps roles to NF points. No site, equipment or point names are hard-coded.
+Point roles use ASHRAE 223P-derived snake_case names (same convention as Open-FDD). The test plan is built from the equipment model. Haystack tags are the model path. Turtle input is disabled until Oxigraph 0.5.13 and the shared 223P role file are vendored; the hook does not run OntoEnv or Shifty and does not fetch ontologies. A point is writable only when the model marks it writable. No site, equipment or point names are hard-coded.
+
+## Development
+
+Requires Node.js 20 or newer. Tests use `node:test` and do not open network connections.
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run coverage
+npm run validate:examples
+npm run scan
+```
+
+`dry_run` defaults to true. A live write also needs `confirm_live` on the start request. BACnet priority defaults to 8 and must be an integer from 3 to 16. Priorities 1 and 2 are rejected.
+
+Site policy is validated against `schema/site-config.schema.json`. See `examples/site-config.example.json`. Haystack role tag mappings live in `schema/haystack-role-map.json`. The shared 223P role file pin is `schema/shared-role-file.pin.json`. Offline validation of RDF models is a CI step (`rdflib==7.6.0`, `ontoenv==0.6.4`, `pyshifty==0.6.0`) and is not part of the NF hook. See `docs/superpowers/plans/2026-11-26-rdf-alignment.md`.
 
 ## Documents
 
 - [docs/DESIGN.md](docs/DESIGN.md): sequence, state machine, config schema, data logging, safety, NF integration, test plan.
+- [docs/INSTALL.md](docs/INSTALL.md): install from git, options, and the recommended write guardrail.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md): dry-run rehearsal, lab checklist, and `NEEDS_ATTENTION`.
+- [docs/sql-examples.md](docs/sql-examples.md): label trends with manifest step windows.
+- [docs/DECISIONS.md](docs/DECISIONS.md): departures from the design.
 - [docs/CURSOR_PROMPT.md](docs/CURSOR_PROMPT.md): build prompt for a Cursor cloud agent (v0.1).
 
 ## License

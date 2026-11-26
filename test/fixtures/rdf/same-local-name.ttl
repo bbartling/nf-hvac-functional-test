@@ -1,0 +1,6 @@
+@prefix brick: <https://brickschema.org/schema/Brick#> .
+@prefix local: <urn:local:> .
+@prefix s223: <https://w3id.org/ashrae/223p#> .
+
+brick:Sensor a s223:Property .
+local:Sensor a s223:Property .

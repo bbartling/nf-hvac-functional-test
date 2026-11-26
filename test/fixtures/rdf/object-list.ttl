@@ -1,0 +1,5 @@
+@prefix s223: <https://w3id.org/ashrae/223p#> .
+@prefix ex: <urn:ex:> .
+
+ex:equip_a s223:label "equip", "ahu", "rooftop" ;
+    s223:count 2 .

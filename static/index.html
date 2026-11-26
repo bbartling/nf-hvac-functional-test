@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>HVAC functional test</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; color: #1b1b1b; }
+    .banner { background: #fff4cc; border: 1px solid #e0b000; padding: 0.75rem 1rem; }
+    button { font-size: 1rem; padding: 0.4rem 0.8rem; }
+    dl { display: grid; grid-template-columns: 12rem 1fr; gap: 0.4rem 1rem; }
+    dt { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <p id="unknown-banner" class="banner" hidden>Status unknown. The abort result is not confirmed.</p>
+  <p id="dry-run-banner" class="banner" hidden>Dry-run is on. This rehearsal does not write equipment.</p>
+  <h1>Functional test</h1>
+  <dl>
+    <dt>State</dt><dd id="state">IDLE</dd>
+    <dt>Step</dt><dd id="step">none</dd>
+    <dt>Time left</dt><dd id="time-left">0 s</dd>
+    <dt>Active overrides</dt><dd id="overrides">none</dd>
+    <dt>Interlock readings</dt><dd id="interlocks">none</dd>
+    <dt>Release status</dt><dd id="release">idle</dd>
+    <dt>Capability report</dt><dd id="capability">none</dd>
+  </dl>
+  <p><button id="abort" type="button">Abort</button></p>
+  <script>
+    async function refresh() {
+      const reply = await fetch('status.json').catch(() => null);
+      if (!reply || !reply.ok) {
+        document.getElementById('state').textContent = 'status unknown';
+        document.getElementById('unknown-banner').hidden = false;
+        document.getElementById('dry-run-banner').hidden = true;
+        return;
+      }
+      const body = await reply.json();
+      document.getElementById('unknown-banner').hidden = true;
+      document.getElementById('state').textContent = body.state || 'IDLE';
+      document.getElementById('step').textContent = body.step || 'none';
+      document.getElementById('time-left').textContent = body.time_left || '0 s';
+      document.getElementById('overrides').textContent = body.overrides || 'none';
+      document.getElementById('interlocks').textContent = body.interlocks || 'none';
+      document.getElementById('release').textContent = body.release || 'idle';
+      document.getElementById('capability').textContent = body.capability || 'none';
+      document.getElementById('dry-run-banner').hidden = body.dry_run !== true;
+    }
+    document.getElementById('abort').addEventListener('click', async () => {
+      const reply = await fetch('/api/v1/hooks/admin/invoke', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ args: { action: 'abort' } }),
+      }).catch(() => null);
+      if (!reply || !reply.ok) {
+        document.getElementById('release').textContent = 'abort failed';
+        document.getElementById('unknown-banner').hidden = false;
+        return;
+      }
+      const body = await reply.json();
+      document.getElementById('release').textContent = body.state || 'RELEASING';
+    });
+    refresh();
+  </script>
+</body>
+</html>

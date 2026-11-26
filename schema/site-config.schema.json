@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nf-hvac-functional-test.invalid/schema/site-config.schema.json",
+  "title": "Site config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "equipment"],
+  "properties": {
+    "version": { "const": 1 },
+    "dry_run": { "type": "boolean" },
+    "dry_run_time_scale": { "type": "integer", "minimum": 1, "maximum": 60 },
+    "max_concurrent_runs": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "allowed_windows": {
+      "type": "array",
+      "maxItems": 21,
+      "items": { "$ref": "#/$defs/window" }
+    },
+    "write": { "$ref": "#/$defs/write" },
+    "limits": { "$ref": "#/$defs/limits" },
+    "interlocks": { "$ref": "#/$defs/interlocks" },
+    "logging": { "$ref": "#/$defs/logging" },
+    "plan": { "$ref": "#/$defs/plan" },
+    "vav_test": { "$ref": "#/$defs/vav_test" },
+    "equipment": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/equipment" }
+    }
+  },
+  "$defs": {
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["days", "start", "end"],
+      "properties": {
+        "days": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] }
+        },
+        "start": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+        "end": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+      }
+    },
+    "write": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": { "enum": ["nf_command", "bacnet_direct"] },
+        "bacnet_priority": { "type": "integer", "minimum": 3, "maximum": 16 },
+        "command_lease_s": { "type": "integer", "minimum": 30, "maximum": 86400 },
+        "keepalive_s": { "type": "integer", "minimum": 5, "maximum": 3600 },
+        "verify_s": { "type": "integer", "minimum": 1, "maximum": 300 },
+        "release_retries": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "release_backoff_s": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "type": "integer", "minimum": 1, "maximum": 600 }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_total_minutes": { "type": "integer", "minimum": 1, "maximum": 1440 },
+        "max_tick_gap_s": { "type": "integer", "minimum": 10, "maximum": 3600 },
+        "max_comm_failures": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_boxes_overridden": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "max_sample_age_s": { "type": "integer", "minimum": 10, "maximum": 3600 }
+      }
+    },
+    "interlocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duct_static_pressure_max_pa": { "type": "number", "exclusiveMinimum": 0, "maximum": 10000 },
+        "mixed_air_temperature_min_c": { "type": "number", "minimum": -40, "maximum": 30 },
+        "discharge_air_temperature_min_c": { "type": "number", "minimum": -40, "maximum": 30 },
+        "zone_air_temperature_min_c": { "type": "number", "minimum": -10, "maximum": 40 },
+        "zone_air_temperature_max_c": { "type": "number", "minimum": 0, "maximum": 50 },
+        "fan_status_loss_abort": { "type": "boolean" },
+        "freeze_protection_status_abort": { "type": "boolean" },
+        "smoke_alarm_status_abort": { "type": "boolean" }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["shadow", "period_boost", "both"] },
+        "sample_interval_s": { "type": "integer", "minimum": 10, "maximum": 600, "multipleOf": 10 },
+        "boost_period_s": { "type": "integer", "minimum": 15, "maximum": 3600 },
+        "max_boosted_points": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "recovery_minutes": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "max_reads_per_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000 }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/step" }
+        },
+        "econ_window": { "$ref": "#/$defs/econ_window" },
+        "ahu_strategy": { "enum": ["per_point", "mode_point"] },
+        "mode_point_values": { "$ref": "#/$defs/mode_point_values" }
+      }
+    },
+    "econ_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "low_c": { "type": "number", "minimum": -40, "maximum": 50 },
+        "high_c": { "type": "number", "minimum": -40, "maximum": 50 },
+        "min_delta_k": { "type": "number", "minimum": 0, "maximum": 40 },
+        "max_rh_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id"],
+      "properties": {
+        "step_id": {
+          "enum": [
+            "ahu.baseline",
+            "ahu.recirc",
+            "ahu.economizer",
+            "vav.max_cool",
+            "recovery",
+            "ahu.fan_off",
+            "ahu.fan_min_speed",
+            "ahu.damper_stroke",
+            "ahu.valve_stroke",
+            "ahu.startup_static",
+            "ahu.economizer_mech"
+          ]
+        },
+        "hold_minutes": { "type": "integer", "minimum": 1, "maximum": 240 },
+        "settle_minutes": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "conditional": { "enum": ["econ_window"] },
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "mode_point_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ahu.recirc": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.economizer": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.fan_off": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.fan_min_speed": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.damper_stroke": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.valve_stroke": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.startup_static": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ahu.economizer_mech": { "type": "integer", "minimum": 0, "maximum": 65535 }
+      }
+    },
+    "vav_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "enum": ["bas_toggle", "flush_point", "airflow_setpoint", "auto", "auto_per_box"] },
+        "ahu_mode": { "enum": ["auto", "recirc", "economizer"] },
+        "batch_size": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "batch_delay_s": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "min_capable_boxes": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "values": { "$ref": "#/$defs/vav_values" },
+        "airflow_setpoint_default_m3s": { "type": ["number", "null"], "minimum": 0 },
+        "airflow_setpoint_hard_cap_m3s": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "bas_toggle_min_boxes_responding_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "per_box_strategy": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["flush_point", "airflow_setpoint"] }
+        }
+      }
+    },
+    "vav_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bas_toggle_on": { "type": "number" },
+        "flush_on": { "type": "number" }
+      }
+    },
+    "equipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "points"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "type": { "enum": ["ahu", "vav"] },
+        "points": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": { "$ref": "#/$defs/binding" }
+        },
+        "serves": {
+          "type": "array",
+          "maxItems": 400,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uuid": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "layer": { "type": "string", "pattern": "^hpl:bacnet:[A-Za-z0-9_.:-]{1,64}$" },
+        "writable": { "type": "boolean" },
+        "query": { "$ref": "#/$defs/query" }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["equip_ref"],
+      "properties": {
+        "equip_ref": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$" },
+        "markers": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" }
+        }
+      }
+    }
+  }
+}
