@@ -8,7 +8,7 @@ let signalsBound = false;
 
 /**
  * NF calls this with the applications SDK. The SDK is not required at load time.
- * @param {any} sdk
+ * @param {any} ctx
  */
 async function onTick(ctx) {
   const sdk = ctx && ctx.sdk ? ctx.sdk : (ctx || {});

@@ -7,7 +7,7 @@ let session = createSession();
 
 /**
  * Operator actions. Arguments arrive as strings.
- * @param {any} sdk
+ * @param {any} ctx
  */
 async function onRequest(ctx) {
   const sdk = ctx && ctx.sdk ? ctx.sdk : (ctx || {});
