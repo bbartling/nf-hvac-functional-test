@@ -1,0 +1,10 @@
+# Product tokens that must not appear in source, tests, fixtures, or docs.
+# This file is the denylist and is excluded from the scan.
+niagara
+tridium
+metasys
+distech
+honeywell
+ecostruxure
+webctrl
+alerton

@@ -1,0 +1,56 @@
+{
+  "id": "nf-hvac-functional-test",
+  "name": "HVAC functional test",
+  "description": "Runs an AHU functional test with an optional VAV max-cooling-airflow step. Dry-run is the default. Writes use a BACnet priority from 3 to 16 (default 8).",
+  "runtime": "RUNTIME_NODE_JS",
+  "minNfVersion": "3.10.0",
+  "layer": {
+    "name": "ftest",
+    "description": "Shadow samples for functional test runs",
+    "indexed": true,
+    "components": ["equipment_id", "role", "source_uuid"],
+    "structuredComponents": [
+      { "name": "equipment_id", "type": "TAG" },
+      { "name": "role", "type": "TAG" },
+      { "name": "source_uuid", "type": "TAG" }
+    ]
+  },
+  "auth": {
+    "apiKey": {
+      "scopes": [
+        "normalgw.hpl.v1.readwrite",
+        "normalgw.hpl.v2.readwrite",
+        "normalgw.bacnet.v1.readwrite",
+        "normalgw.bacnet.v2.readwrite",
+        "normalgw.ontology.v1.readonly",
+        "normalgw.automation.v1.readonly"
+      ]
+    }
+  },
+  "options": [
+    {
+      "name": "siteConfig",
+      "description": "Site configuration JSON. Point UUIDs and generic equipment ids only. Dry-run defaults to true.",
+      "optionType": "TYPE_STRING",
+      "defaultValue": { "string": "" }
+    },
+    {
+      "name": "enabled",
+      "description": "When false, the engine tick does no work.",
+      "optionType": "TYPE_BOOLEAN",
+      "defaultValue": { "boolean": true }
+    },
+    {
+      "name": "logLevel",
+      "description": "Log level.",
+      "optionType": "TYPE_STRING",
+      "choices": [
+        { "string": "debug" },
+        { "string": "info" },
+        { "string": "warn" },
+        { "string": "error" }
+      ],
+      "defaultValue": { "string": "info" }
+    }
+  ]
+}

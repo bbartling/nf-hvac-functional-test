@@ -315,7 +315,27 @@ Stored as the NF app option `siteConfig` (a JSON string; NF app options arrive a
 }
 ```
 
-Point binding options, in order of precedence per role: explicit `uuid`; a Haystack/NF query (`{ "equip_ref": "...", "markers": [...] }`) resolved at PRECHECK to exactly one point (zero or several is a PRECHECK failure, never a guess). `serves` may instead be resolved from `airRef`/`equipRef` relationships when the model has them. A read-only `config discover` operator action proposes a role map from the NF model for review but never saves or writes anything by itself.
+Point binding options, in order of precedence per role: the data model (section 5.3); else an explicit `uuid`; else a Haystack/NF query (`{ "equip_ref": "...", "markers": [...] }`) resolved at PRECHECK to exactly one point (zero or several is a PRECHECK failure, never a guess). `serves` may instead be resolved from `airRef`/`equipRef` relationships when the model has them. A read-only `config discover` operator action proposes a role map from the NF model for review but never saves or writes anything by itself.
+
+### 5.3 Data-model-driven planning
+
+The test plan is not hard-coded per site or per box. `lib/plan.js` is a pure function: internal model plus site policy in, ordered steps and a capability report out. The same planner run on a different model produces a different plan.
+
+Two adapters build the same internal model:
+
+- Haystack tags are the primary input. NF points are read as tag sets and layers (`attrs` marker values `m:` or a `tags` array, plus `equipRef` / `ahuRef`). `schema/haystack-role-map.json` (version field) maps a tag set to one 223P-derived role. The longest matching tag set wins. A site may overlay that file; no code change is required to add a tag set.
+- RDF/223P is optional and has no NF dependency. `lib/model/rdf.js` reads a Turtle file. `schema/rdf-role-map.json` maps type local names to the same roles. Relationships use `feeds` and `ahuRef` / `isFedBy`.
+
+Writable versus read-only is a model fact, not a per-box branch. A point is model-writable only when it carries a `writable` marker (a `cmd` or `sp` tag alone is not enough). The role registry still has to allow writes. An explicit config binding must also set `writable: true`; that flag cannot promote a point the model marks read-only. If the model says writable and a later priority-array or readback probe disagrees, the point is skipped with `no_priority_array` or `write_not_effective` and is not written.
+
+Planning rules, applied uniformly:
+
+- `ahu.recirc` runs when the coil commands the strategy needs are model-writable. The outside-air damper command is included when it is model-writable and is not required for recirculation.
+- `ahu.economizer` runs only when that damper command is model-writable (and the coil commands are). Otherwise the step is skipped with `economizer_points_missing`. Weather eligibility is still checked at runtime.
+- Each VAV box gets the first strategy in the configured order that its own points support: `flush_point`, `airflow_setpoint`, or the AHU-level `bas_toggle`. A box with no model-writable strategy is skipped with `model_not_writable` or `role_unbound`. If fewer than `min_capable_boxes` qualify, `vav.max_cool` is skipped with `insufficient_capability`.
+- An interlock is active only when its input point is bound. Sample points are the bound points on the selected AHU and the boxes it serves.
+
+Example tag sets in the shipped Haystack map: `discharge air temp sensor` maps to `discharge_air_temperature`; `air flow sp` plus the `writable` marker maps to `cooling_air_flow_setpoint` with writable true; `air flow max` maps to read-only `cooling_air_flow_maximum`. The airflow setpoint is the point the airflow strategy writes. The maximum is the cap that strategy reads.
 
 Validation rules (enforced in code and tests): hard-coded identifiers are not allowed in the app source; `bacnet_priority` is an integer 3 to 16; writes require the point flag `writable: true`; every write role must map to a role in the role registry; all thresholds in SI.
 
