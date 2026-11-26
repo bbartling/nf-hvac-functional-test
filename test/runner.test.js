@@ -446,6 +446,11 @@ test('boost, fan stability, unbound writes, and vav expansion are explicit', asy
     rig.runner.fanOnMs = 10 * 60 * 1000;
     const blocked = await rig.runner.start('boost');
     assert.equal(blocked.reason, 'fan_not_stable');
+    assert.equal(rig.ledger.openPeriods().length, 0);
+    rig.runner.fanOnMs = 0;
+    rig.runner.state = { ...rig.runner.state, phase: 'PRECHECK', reason: '' };
+    const ready = await rig.runner.exec({ type: 'precheck' });
+    assert.equal(ready.type, 'PRECHECK_OK');
     assert.ok(rig.ledger.openPeriods().length > 0);
     rig.runner.state = { ...rig.runner.state, phase: 'NEEDS_ATTENTION', needsAttention: true };
     await rig.runner.acknowledge();
