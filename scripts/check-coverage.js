@@ -72,16 +72,16 @@ function normalize(file) {
 
 function main() {
   fs.mkdirSync(path.dirname(LCOV), { recursive: true });
-  const child = spawnSync(process.execPath, [
+  const args = [
     '--test',
     '--experimental-test-coverage',
-    '--test-coverage-include=lib/**/*.js',
     '--test-reporter=spec',
     '--test-reporter=lcov',
     '--test-reporter-destination=stdout',
     '--test-reporter-destination=coverage/lcov.info',
     'test/*.test.js',
-  ], { cwd: ROOT, stdio: 'inherit' });
+  ];
+  const child = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
   if (child.status !== 0) process.exit(child.status || 1);
   const report = parseLcov(fs.readFileSync(LCOV, 'utf8'));
   const required = ALWAYS.slice();
