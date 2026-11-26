@@ -74,6 +74,18 @@ test('max or min airflow cannot bind to the writable setpoint', () => {
   assert.equal(maximum.points.cooling_air_flow_maximum.writable, false);
 });
 
+test('two points with the same role on one equipment bind neither', () => {
+  const first = tagged(['discharge', 'air', 'temp', 'sensor']);
+  const second = tagged(['discharge', 'air', 'temp', 'sensor'], { uuid: '00000000-0000-4000-8000-000000000299' });
+  second.uuid = '00000000-0000-4000-8000-000000000299';
+  const model = loadHaystackModel({
+    equipment: [{ id: 'ahu_a', type: 'ahu' }],
+    points: [first, second],
+  });
+  assert.equal(model.equipment[0].points.discharge_air_temperature, undefined);
+  assert.equal(model.ambiguous.length, 1);
+});
+
 test('class and comma-separated markers are tags, including Haystack 4 names', () => {
   const fromMarkers = roleOf({
     uuid: '00000000-0000-4000-8000-000000000202',
