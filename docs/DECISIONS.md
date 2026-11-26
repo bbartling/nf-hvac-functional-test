@@ -76,9 +76,17 @@ A VAV box is not special-cased by id. Strategy order is the site policy (`auto`,
 
 Interlocks whose input points are unbound are omitted from the plan. Required AHU sensor roles (`requirement: yes`) still fail config validation when an AHU equipment entry lists points and omits one. Write roles are not required at config validation time; a missing write role becomes a skipped step.
 
+## D18. Haystack role matching
+
+Matching is longest tag set, then a hard rule: a `cmd` marker keeps only roles that list `cmd`. An equal-length tie assigns no role and is reported on the model `ambiguous` list. Setpoint roles forbid `max` and `min`. The shipped map uses Haystack 4 tokens (`cool`, `heat`, `freezeStat`, `ductStatic`, damper tags without `air`). `class` and comma-separated `markers` are tag sources. Role ids stay in `lib/roles.js` and `schema/haystack-role-map.json`.
+
 ## D16. Assumed NF routes
 
 Point query, point upsert, and AddData are `POST /api/v1/point/query`, `/api/v1/point/upsert`, and `/api/v1/data`. Direct BACnet is `POST /api/v2/bacnet/read` and `/api/v2/bacnet/write`. Command routes follow the command service under `/api/v2/command`. None of the point or BACnet paths were verified on a running NF (section 11, questions 2 and 6). `cancel_on_conflict` fails the new write and leaves the existing command running. The fake listens on `127.0.0.1` only and is not part of the installed app.
+
+## D17. Release verification
+
+A corrupt JSONL line is skipped wherever it sits, so one bad line cannot hide earlier overrides. After `CancelCommand`, a slot that is still occupied is relinquished with a NULL write at the same priority. That covers a zombie the command service did not clear. Other slots are not written. A `failed` ledger result removes that override; an `intent` with no result is treated as possibly written and is released.
 
 ## Open questions
 

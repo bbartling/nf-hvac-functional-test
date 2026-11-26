@@ -11,7 +11,7 @@ const READS = {
   mixed_air_temperature: ['mixed', 'air', 'temp', 'sensor'],
   return_air_temperature: ['return', 'air', 'temp', 'sensor'],
   outside_air_temperature: ['outside', 'air', 'temp', 'sensor'],
-  duct_static_pressure: ['duct', 'static', 'pressure', 'sensor'],
+  duct_static_pressure: ['ductStatic', 'sensor'],
   supply_fan_run_status: ['supply', 'fan', 'run'],
 };
 
@@ -40,16 +40,16 @@ function fleet(spec) {
     points.push(point('ahu_a', tags, n, false));
     n += 1;
   }
-  points.push(point('ahu_a', ['cooling', 'valve', 'cmd'], n, true));
+  points.push(point('ahu_a', ['cool', 'valve', 'cmd'], n, true));
   n += 1;
-  points.push(point('ahu_a', ['heating', 'valve', 'cmd'], n, true));
+  points.push(point('ahu_a', ['heat', 'valve', 'cmd'], n, true));
   n += 1;
   if (spec.damper !== false) {
-    points.push(point('ahu_a', ['outside', 'air', 'damper', 'cmd'], n, true));
+    points.push(point('ahu_a', ['outside', 'damper', 'cmd'], n, true));
     n += 1;
   }
   if (spec.freeze) {
-    points.push(point('ahu_a', ['freeze', 'sensor'], n, false));
+    points.push(point('ahu_a', ['freezeStat'], n, false));
     n += 1;
   }
   /** @type {any[]} */
