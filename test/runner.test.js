@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createFake } = require('./fake/server');
+const { DeviceObject } = require('./fake/device');
 const { VirtualClock } = require('./fake/clock');
 const { NfClient } = require('../lib/nf/client');
 const { Ledger } = require('../lib/ledger');
@@ -571,6 +572,36 @@ test('two hundred random faults leave no override behind', async () => {
   } finally {
     await fake.close();
   }
+});
+
+test('a vav discharge temperature does not mask the ahu interlock', async () => {
+  const { fake, runner, model } = await world();
+  const vavUuid = '00000000-0000-4000-8000-000000000099';
+  model.equipment.push({
+    id: 'vav_01',
+    type: 'vav',
+    points: {
+      discharge_air_temperature: { role: 'discharge_air_temperature', uuid: vavUuid, layer: LAYER, writable: false },
+    },
+  });
+  runner.points.set('vav_01|discharge_air_temperature', {
+    role: 'discharge_air_temperature',
+    uuid: vavUuid,
+    layer: LAYER,
+    writable: false,
+  });
+  runner.plan.sample_points.push({
+    equipment_id: 'vav_01',
+    role: 'discharge_air_temperature',
+    uuid: vavUuid,
+    layer: LAYER,
+  });
+  const ahuDat = model.equipment[0].points.discharge_air_temperature;
+  fake.points.get(ahuDat.uuid).derive = () => 2;
+  fake.points.set(vavUuid, new DeviceObject({ uuid: vavUuid, layer: LAYER, type: 'ai', relinquish: 30 }));
+  await runner.start('scope');
+  await runner.tick();
+  assert.match(runner.state.reason, /discharge_air_low/);
 });
 
 test('a 20 minute recirc hold completes inside a 5 minute lease', async () => {

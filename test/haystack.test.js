@@ -25,13 +25,13 @@ function tagged(tags, attrs = {}) {
 /**
  * @param {any} point
  */
-function roleOf(point) {
+function roleOf(point, type = 'ahu') {
   const model = loadHaystackModel({
-    equipment: [{ id: 'ahu_a', type: 'ahu' }],
+    equipment: [{ id: 'ahu_a', type }],
     points: [point],
   });
   const points = model.equipment.find((item) => item.id === 'ahu_a').points;
-  return { points, ambiguous: model.ambiguous };
+  return { points, ambiguous: model.ambiguous, rejected: model.rejected };
 }
 
 test('cmd forces a command role and a tie is reported instead of guessed', () => {
@@ -61,16 +61,16 @@ test('cmd forces a command role and a tie is reported instead of guessed', () =>
 });
 
 test('max or min airflow cannot bind to the writable setpoint', () => {
-  const capped = roleOf(tagged(['max', 'air', 'flow', 'sp', 'writable']));
+  const capped = roleOf(tagged(['max', 'air', 'flow', 'sp', 'writable']), 'vav');
   assert.equal(capped.points.cooling_air_flow_setpoint, undefined);
   assert.equal(capped.points.cooling_air_flow_maximum, undefined);
 
-  const minimum = roleOf(tagged(['min', 'air', 'flow', 'sp', 'writable']));
+  const minimum = roleOf(tagged(['min', 'air', 'flow', 'sp', 'writable']), 'vav');
   assert.equal(minimum.points.cooling_air_flow_setpoint, undefined);
 
-  const setpoint = roleOf(tagged(['air', 'flow', 'sp', 'writable']));
+  const setpoint = roleOf(tagged(['air', 'flow', 'sp', 'writable']), 'vav');
   assert.equal(setpoint.points.cooling_air_flow_setpoint.writable, true);
-  const maximum = roleOf(tagged(['air', 'flow', 'max']));
+  const maximum = roleOf(tagged(['air', 'flow', 'max']), 'vav');
   assert.equal(maximum.points.cooling_air_flow_maximum.writable, false);
 });
 
@@ -107,6 +107,13 @@ test('class and comma-separated markers are tags, including Haystack 4 names', (
     },
   });
   assert.equal(duct.points.duct_static_pressure.role, 'duct_static_pressure');
+
+  const vav = loadHaystackModel({
+    equipment: [{ id: 'vav_01', type: 'vav' }],
+    points: [tagged(['discharge', 'air', 'temp', 'sensor'], { equipRef: 'vav_01' })],
+  });
+  assert.equal(vav.equipment[0].points.discharge_air_temperature, undefined);
+  assert.equal(vav.rejected[0].role, 'discharge_air_temperature');
 
   const damper = roleOf(tagged(['outside', 'damper', 'cmd', 'writable']));
   assert.equal(damper.points.outside_air_damper_command.role, 'outside_air_damper_command');
