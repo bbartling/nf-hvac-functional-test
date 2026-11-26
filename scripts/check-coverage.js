@@ -36,6 +36,8 @@ const WHEN_PRESENT = [
   'lib/writers/nf_command.js',
   'lib/writers/bacnet_direct.js',
   'lib/writers/dry_run.js',
+  'lib/writers/verify.js',
+  'lib/writers/release.js',
 ];
 
 /**
