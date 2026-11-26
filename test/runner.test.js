@@ -591,6 +591,51 @@ test('a 20 minute recirc hold completes inside a 5 minute lease', async () => {
   }
 });
 
+test('a restarted runner without live permission releases the live slot', async () => {
+  const { clock, fake, runner, client, model, ledger, config, plan } = await world({
+    confirmLive: true,
+    config: {
+      write: {
+        backend: 'bacnet_direct',
+        command_lease_s: 300,
+        keepalive_s: 60,
+        release_retries: 1,
+        release_backoff_s: [1, 1],
+      },
+      plan: {
+        steps: [
+          { step_id: 'ahu.baseline', hold_minutes: 0 },
+          { step_id: 'ahu.recirc', hold_minutes: 20 },
+          { step_id: 'ahu.economizer', enabled: false },
+          { step_id: 'vav.max_cool', enabled: false },
+          { step_id: 'recovery', hold_minutes: 0 },
+        ],
+      },
+      limits: { max_total_minutes: 40, max_tick_gap_s: 1000, max_comm_failures: 3 },
+    },
+  });
+  try {
+    await runner.start('run_live');
+    for (let i = 0; i < 6; i += 1) {
+      clock.advance(10 * 1000);
+      await runner.tick();
+    }
+    const uuid = model.equipment[0].points.cooling_valve_command.uuid;
+    assert.equal((await client.readPriorityArray({ uuid }))[7], 0);
+    const restarted = new Runner({
+      client, ledger, config, plan, model, clock, fanOnMs: 0, confirmLive: false, sleep: async () => {},
+    });
+    await restarted.recover();
+    const slot = (await client.readPriorityArray({ uuid }))[7];
+    const open = ledger.openOverrides().filter((entry) => entry.uuid === uuid);
+    assert.equal(slot, null);
+    assert.equal(open.length, 0);
+    assert.equal(restarted.state.needsAttention, false);
+  } finally {
+    await fake.close();
+  }
+});
+
 test('stopping keepalive lets the lease revert the override', async () => {
   const { clock, fake, runner, client, model } = await world({
     config: {

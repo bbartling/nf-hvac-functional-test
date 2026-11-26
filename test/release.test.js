@@ -98,6 +98,15 @@ test('a failed rewrite does not erase an earlier live override', async () => {
   }
 });
 
+test('the dry-run writer refuses a live ledger entry', async () => {
+  const ledger = new Ledger(tempDir());
+  const writer = new DryRunWriter(ledger);
+  await assert.rejects(
+    () => writer.release([{ backend: 'bacnet_direct', uuid: UUID, priority: 8, run_id: 'run_a' }]),
+    (error) => error instanceof Error && /** @type {any} */ (error).code === 'dry_run_release_refused',
+  );
+});
+
 test('dry-run and unconfirmed live mode perform zero writes', async () => {
   const { fake, client, ledger } = await rig();
   try {
