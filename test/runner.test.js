@@ -574,6 +574,33 @@ test('two hundred random faults leave no override behind', async () => {
   }
 });
 
+test('release leaves another run holding its slot', async () => {
+  const rig = await world();
+  try {
+    await rig.runner.start('run_scope');
+    await rig.runner.tick();
+    await rig.runner.tick();
+    const damper = rig.model.equipment[0].points.outside_air_damper_command;
+    rig.ledger.append({
+      kind: 'active',
+      run_id: 'other_run',
+      equipment_id: 'ahu_a',
+      uuid: damper.uuid,
+      layer: damper.layer,
+      priority: 8,
+      value: 0,
+      backend: 'nf_command',
+      command_name: 'ftest-other_run-ahu_a',
+    });
+    await rig.runner.abort();
+    const other = rig.ledger.openOverrides().filter((entry) => entry.run_id === 'other_run');
+    assert.equal(other.length, 1);
+    assert.equal(other[0].kind === 'active' || other[0].value === 0, true);
+  } finally {
+    await rig.fake.close();
+  }
+});
+
 test('an old device timestamp trips stale data', async () => {
   const rig = await world({ config: { limits: { max_sample_age_s: 30, max_tick_gap_s: 3600 } } });
   try {
