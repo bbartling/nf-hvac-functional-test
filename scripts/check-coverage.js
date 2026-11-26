@@ -25,6 +25,7 @@ const ALWAYS = [
   'lib/model/writable.js',
   'lib/model/index.js',
   'lib/plan.js',
+  'lib/nf/client.js',
 ];
 
 const WHEN_PRESENT = [

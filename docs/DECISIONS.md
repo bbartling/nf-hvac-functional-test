@@ -76,6 +76,10 @@ A VAV box is not special-cased by id. Strategy order is the site policy (`auto`,
 
 Interlocks whose input points are unbound are omitted from the plan. Required AHU sensor roles (`requirement: yes`) still fail config validation when an AHU equipment entry lists points and omits one. Write roles are not required at config validation time; a missing write role becomes a skipped step.
 
+## D16. Assumed NF routes
+
+Point query, point upsert, and AddData are `POST /api/v1/point/query`, `/api/v1/point/upsert`, and `/api/v1/data`. Direct BACnet is `POST /api/v2/bacnet/read` and `/api/v2/bacnet/write`. Command routes follow the command service under `/api/v2/command`. None of the point or BACnet paths were verified on a running NF (section 11, questions 2 and 6). `cancel_on_conflict` fails the new write and leaves the existing command running. The fake listens on `127.0.0.1` only and is not part of the installed app.
+
 ## Open questions
 
 Section 11 is still open. Nothing in it was verified against a running NF. `period_boost` stays off.
