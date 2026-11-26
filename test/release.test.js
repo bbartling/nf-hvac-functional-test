@@ -76,6 +76,28 @@ test('intent is on disk before the write is sent, and a torn tail is ignored', a
   }
 });
 
+test('a failed rewrite does not erase an earlier live override', async () => {
+  const { fake, client, ledger } = await rig();
+  try {
+    const writer = new BacnetDirectWriter({ client, ledger, priority: 8 });
+    const first = await writer.write({
+      run_id: 'run_a', equipment_id: 'ahu_a', uuid: UUID, layer: LAYER, value: 0,
+    });
+    assert.equal(first.ok, true);
+    const second = await writer.write({
+      run_id: 'run_a', equipment_id: 'ahu_a', uuid: UUID, layer: LAYER, value: 150,
+    });
+    assert.equal(second.ok, false);
+    assert.equal((await client.readPriorityArray({ uuid: UUID }))[7], 0);
+    const open = ledger.openOverrides();
+    assert.equal(open.length, 1);
+    assert.equal(open[0].kind, 'active');
+    assert.equal(open[0].value, 0);
+  } finally {
+    await fake.close();
+  }
+});
+
 test('dry-run and unconfirmed live mode perform zero writes', async () => {
   const { fake, client, ledger } = await rig();
   try {
