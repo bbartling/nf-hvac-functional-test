@@ -62,9 +62,9 @@ Indexed components `equipment_id`, `role`, `source_uuid`. No protocol driver. Sh
 
 Owner requirement, applied before any sequencer was written.
 
-The Haystack tag adapter is the primary model input. It reads NF point tags and layers directly. The RDF/223P adapter reads a local Turtle file and does not call NF. Both produce one internal model. `lib/plan.js` is pure.
+The Haystack tag adapter is the primary model input. It reads NF point tags and layers directly. `lib/plan.js` is pure. RDF input does not build a model (D19).
 
-`schema/haystack-role-map.json` and `schema/rdf-role-map.json` are versioned. `mergeMaps` overlays a site file onto the shipped map.
+`schema/haystack-role-map.json` is versioned. `mergeMaps` overlays a site file onto the shipped Haystack map.
 
 Writable comes from the `writable` marker. A `cmd` or `sp` tag does not make a point writable by itself. `evaluateWrite` refuses the write when the model marker is absent, even if config sets `writable: true`. When a config binding exists it must also set `writable: true` (operator allow-list). A discovered point with no config binding is allowed when the model marks it writable. `confirmRuntime` then requires a priority array and, when a readback probe is present, a matching readback. Disagreement skips the point; it does not write it.
 
@@ -79,6 +79,12 @@ Interlocks whose input points are unbound are omitted from the plan. Required AH
 ## D18. Haystack role matching
 
 Matching is longest tag set, then a hard rule: a `cmd` marker keeps only roles that list `cmd`. An equal-length tie assigns no role and is reported on the model `ambiguous` list. Setpoint roles forbid `max` and `min`. The shipped map uses Haystack 4 tokens (`cool`, `heat`, `freezeStat`, `ductStatic`, damper tags without `air`). `class` and comma-separated `markers` are tag sources. Role ids stay in `lib/roles.js` and `schema/haystack-role-map.json`.
+
+## D19. RDF input is refused until the shared role file lands
+
+`lib/model/rdf.js` no longer splits Turtle. `loadRdfModel`, `parseTtl`, and `loadRdfMap` throw `RdfInputDisabledError`. `schema/rdf-role-map.json` is removed so local-name types cannot bind a role. `matchRoleIri` matches the full IRI and returns null on zero or several roles. `schema/shared-role-file.pin.json` records Oxigraph 0.5.13, the 223P ontology sha256, and a null role-file hash. `checkVendoredRoleFile` fails when a vendored file's sha256 differs from that pin.
+
+Vendoring Oxigraph and the shared role file waits on the review that names the role file. The Node hook still has no Python, so OntoEnv and Shifty stay in CI. Haystack planning is unchanged. The follow-up steps are in `docs/superpowers/plans/2026-11-26-rdf-alignment.md`.
 
 ## D16. Assumed NF routes
 

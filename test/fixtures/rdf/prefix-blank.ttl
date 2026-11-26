@@ -1,0 +1,7 @@
+PREFIX s223: <https://w3id.org/ashrae/223p#>
+PREFIX qk: <http://qudt.org/vocab/quantitykind/>
+BASE <urn:ex:>
+
+_:point a s223:Property ;
+    s223:hasQuantityKind qk:Temperature ;
+    s223:of [ s223:part ( s223:Air ) ] .

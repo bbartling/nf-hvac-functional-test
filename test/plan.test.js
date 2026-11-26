@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadHaystackModel, loadRdfModel, mergeMaps, loadHaystackMap, evaluateWrite, confirmRuntime } = require('../lib/model');
+const { loadHaystackModel, loadRdfModel, mergeMaps, loadHaystackMap, evaluateWrite, confirmRuntime, RdfInputDisabledError } = require('../lib/model');
 const { buildPlan } = require('../lib/plan');
 const { uuid } = require('./helpers');
 
@@ -210,33 +210,11 @@ test('an extended haystack map resolves tags the shipped map does not list', () 
   assert.equal(bound.uuid, uuid(1));
 });
 
-test('rdf and haystack adapters produce the same plan', () => {
+test('haystack still plans when rdf input is refused', () => {
   const haystack = fleet({ damper: false, boxes: [{ id: 'vav_01', kind: 'setpoint' }] });
-  const ttl = `
-    @prefix p223: <urn:p223:> .
-    @prefix id: <urn:id:> .
-    id:ahu_a a p223:AHU .
-    id:vav_01 a p223:VAV ; p223:feeds id:ahu_a .
-    id:dat a p223:DischargeAirTemperature ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(1)}" ; p223:layer "hpl:bacnet:1" .
-    id:mat a p223:MixedAirTemperature ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(2)}" ; p223:layer "hpl:bacnet:1" .
-    id:rat a p223:ReturnAirTemperature ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(3)}" ; p223:layer "hpl:bacnet:1" .
-    id:oat a p223:OutsideAirTemperature ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(4)}" ; p223:layer "hpl:bacnet:1" .
-    id:static a p223:DuctStaticPressure ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(5)}" ; p223:layer "hpl:bacnet:1" .
-    id:fan a p223:SupplyFanRunStatus ; p223:isPointOf id:ahu_a ; p223:uuid "${uuid(6)}" ; p223:layer "hpl:bacnet:1" .
-    id:clg a p223:CoolingValveCommand ; p223:isPointOf id:ahu_a ; p223:writable true ; p223:uuid "${uuid(7)}" ; p223:layer "hpl:bacnet:1" .
-    id:htg a p223:HeatingValveCommand ; p223:isPointOf id:ahu_a ; p223:writable true ; p223:uuid "${uuid(8)}" ; p223:layer "hpl:bacnet:1" .
-    id:zone a p223:ZoneAirTemperature ; p223:isPointOf id:vav_01 ; p223:uuid "${uuid(9)}" ; p223:layer "hpl:bacnet:1" .
-    id:flow a p223:CoolingAirFlowSetpoint ; p223:isPointOf id:vav_01 ; p223:writable true ; p223:uuid "${uuid(10)}" ; p223:layer "hpl:bacnet:1" .
-  `;
-  const rdf = loadRdfModel(ttl);
-  const left = buildPlan(haystack, policy());
-  const right = buildPlan(rdf, policy());
-  assert.deepEqual(
-    left.steps.map((item) => [item.step_id, item.status, item.skip_reason]),
-    right.steps.map((item) => [item.step_id, item.status, item.skip_reason]),
-  );
-  assert.equal(right.capability.vav.per_box[0].strategy, 'airflow_setpoint');
-  assert.equal(rdf.equipment.find((item) => item.id === 'ahu_a').serves.includes('vav_01'), true);
+  const plan = buildPlan(haystack, policy());
+  assert.equal(plan.capability.vav.per_box[0].strategy, 'airflow_setpoint');
+  assert.throws(() => loadRdfModel('@prefix id: <urn:id:> . id:ahu_a a id:AHU .'), RdfInputDisabledError);
 });
 
 test('mode point, bas toggle, and missing sensors change the plan', () => {
@@ -289,7 +267,7 @@ test('mode point, bas toggle, and missing sensors change the plan', () => {
   assert.equal(step(blind, 'recovery').skip_reason, 'nothing_to_run');
 });
 
-test('haystack infers equipment type and rdf accepts ahuRef', () => {
+test('haystack infers equipment type', () => {
   const inferred = loadHaystackModel({
     equipment: [{ id: 'ahu_a', tags: ['ahu'] }],
     points: [point('vav_09', ['zone', 'air', 'temp', 'sensor'], 3, false)],
@@ -301,16 +279,7 @@ test('haystack infers equipment type and rdf accepts ahuRef', () => {
     roles: [{ role: 'discharge_air_temperature', types: ['DAT'] }, { role: 'note' }],
   });
   assert.equal(merged.roles.some((entry) => entry.role === 'note'), true);
-
-  const rdf = loadRdfModel(`
-    @prefix p223: <urn:p223:> .
-    @prefix id: <urn:id:> .
-    id:ahu_a a p223:AHU .
-    id:vav_01 a p223:VAV ; p223:ahuRef id:ahu_a ; mystery:flag true .
-  `);
-  const vav = rdf.equipment.find((item) => item.id === 'vav_01');
-  assert.equal(vav.ahuRef, 'ahu_a');
-  assert.ok(rdf.equipment.find((item) => item.id === 'ahu_a').serves.includes('vav_01'));
+  assert.throws(() => loadRdfModel('@prefix id: <urn:id:> . id:vav_01 id:ahuRef id:ahu_a .'), RdfInputDisabledError);
 });
 
 test('planner refuses to guess an ahu when several are present', () => {

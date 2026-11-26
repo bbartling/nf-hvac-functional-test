@@ -11,7 +11,7 @@ A Normal Framework (NF) app that runs automated HVAC functional tests on air han
 3. **Data capture.** Samples the involved points at a higher rate during the test window into a dedicated NF layer, and writes a run manifest with step timestamps so SQL tools can label the data. Analysis is out of scope.
 4. **Safety.** Dry-run by default, writes at a configurable BACnet priority (default 8), NF command contexts with a short lease and keepalive, a persisted override ledger, interlocks, and release on end, abort, timeout and restart.
 
-Point roles use ASHRAE 223P-derived snake_case names (same convention as Open-FDD). The test plan is built from the equipment model: Haystack tags are the primary input, with an optional Turtle adapter. A point is writable only when the model marks it writable. No site, equipment or point names are hard-coded.
+Point roles use ASHRAE 223P-derived snake_case names (same convention as Open-FDD). The test plan is built from the equipment model. Haystack tags are the model path. Turtle input is disabled until Oxigraph 0.5.13 and the shared 223P role file are vendored; the hook does not run OntoEnv or Shifty and does not fetch ontologies. A point is writable only when the model marks it writable. No site, equipment or point names are hard-coded.
 
 ## Development
 
@@ -29,7 +29,7 @@ npm run scan
 
 `dry_run` defaults to true. A live write also needs `confirm_live` on the start request. BACnet priority defaults to 8 and must be an integer from 3 to 16. Priorities 1 and 2 are rejected.
 
-Site policy is validated against `schema/site-config.schema.json`. See `examples/site-config.example.json`. Role tag mappings live in `schema/haystack-role-map.json` and `schema/rdf-role-map.json`.
+Site policy is validated against `schema/site-config.schema.json`. See `examples/site-config.example.json`. Haystack role tag mappings live in `schema/haystack-role-map.json`. The shared 223P role file pin is `schema/shared-role-file.pin.json`. Offline validation of RDF models is a CI step (`rdflib==7.6.0`, `ontoenv==0.6.4`, `pyshifty==0.6.0`) and is not part of the NF hook. See `docs/superpowers/plans/2026-11-26-rdf-alignment.md`.
 
 ## Documents
 

@@ -1,0 +1,4 @@
+@prefix s223: <https://w3id.org/ashrae/223p#> .
+
+s223:onlySubject .
+"unterminated

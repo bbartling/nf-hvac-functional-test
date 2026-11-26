@@ -1,0 +1,14 @@
+{
+  "status": "not_vendored",
+  "path": "vendor/roles/shared-223p-roles.ttl",
+  "sha256": null,
+  "oxigraph": "0.5.13",
+  "ontology_sha256": "08f80bd6e15052f28cdfd354bdf46ff96e5e1afdba36a4dbed5186fc1ea51c41",
+  "qudt": "3.4.0",
+  "validation": {
+    "rdflib": "7.6.0",
+    "ontoenv": "0.6.4",
+    "pyshifty": "0.6.0",
+    "runs_on": "ci_only"
+  }
+}
