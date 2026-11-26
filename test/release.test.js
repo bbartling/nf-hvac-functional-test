@@ -13,6 +13,7 @@ const { DryRunWriter } = require('../lib/writers/dry_run');
 const { NfCommandWriter } = require('../lib/writers/nf_command');
 const { BacnetDirectWriter } = require('../lib/writers/bacnet_direct');
 const { releaseEntries, recover } = require('../lib/writers/release');
+const { parsePriorityArray } = require('../lib/writers/verify');
 
 const LAYER = 'hpl:bacnet:1';
 const UUID = '00000000-0000-4000-8000-000000000101';
@@ -139,6 +140,69 @@ test('dry-run and unconfirmed live mode perform zero writes', async () => {
   }
 });
 
+test('release leaves a slot that no longer holds our value', async () => {
+  const { fake, client, ledger } = await rig();
+  try {
+    const writer = new BacnetDirectWriter({ client, ledger, priority: 8 });
+    assert.equal((await writer.write({
+      run_id: 'run_a', equipment_id: 'ahu_a', uuid: UUID, layer: LAYER, value: 0,
+    })).ok, true);
+    await client.bacnetWrite({ uuid: UUID, priority: 8, value: 55 });
+    const result = await releaseEntries({
+      ledger,
+      writer,
+      entries: ledger.openOverrides(),
+      retries: 0,
+      backoff_s: [1],
+      sleep: async () => {},
+    });
+    assert.equal(result.ok, false);
+    assert.equal((await client.readPriorityArray({ uuid: UUID }))[7], 55);
+    assert.equal(ledger.openOverrides().length, 1);
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a failed cancel is not recorded as a verified release', async () => {
+  const { fake, client, ledger } = await rig();
+  try {
+    const writer = new NfCommandWriter({ client, ledger, priority: 8, duration_s: 300 });
+    assert.equal((await writer.write({
+      run_id: 'run_a', equipment_id: 'ahu_a', uuid: UUID, layer: LAYER, value: 0,
+    })).ok, true);
+    client.cancelCommand = async () => {
+      throw Object.assign(new Error('status 503'), { status: 503 });
+    };
+    const result = await releaseEntries({
+      ledger,
+      writer,
+      entries: ledger.openOverrides(),
+      retries: 0,
+      backoff_s: [1],
+      sleep: async () => {},
+    });
+    assert.equal(result.ok, false);
+    assert.equal(ledger.openOverrides().length, 1);
+    assert.equal((await client.listCommands()).commands.length, 1);
+    assert.equal((await client.readPriorityArray({ uuid: UUID }))[7], 0);
+  } finally {
+    await fake.close();
+  }
+});
+
+test('an unreadable priority array is not an empty slot', () => {
+  assert.equal(parsePriorityArray({ value: [] }), 'unreadable');
+  const typed = Array(16).fill(null);
+  typed[7] = { real: 4 };
+  const parsed = parsePriorityArray(typed);
+  assert.ok(Array.isArray(parsed));
+  assert.equal(parsed[7], 4);
+  typed[7] = { weird: true };
+  assert.equal(parsePriorityArray(typed), 'unreadable');
+  assert.equal(parsePriorityArray(typed.slice(0, 4)), 'unreadable');
+});
+
 test('bacnet_direct nulls only our slot and an offline release ends in NEEDS_ATTENTION', async () => {
   const { fake, client, ledger } = await rig();
   try {
@@ -230,9 +294,10 @@ test('recovery releases an intent with no result and cancels an orphan ftest com
       backoff_s: [5, 10],
       sleep: async () => {},
     });
-    assert.equal(result.needsAttention, false);
-    assert.equal(result.open.length, 0);
-    assert.equal((await client.readPriorityArray({ uuid: UUID }))[7], null);
+    assert.equal(result.needsAttention, true);
+    assert.equal(result.open.length, 1);
+    assert.equal(result.open[0].value, 15);
+    assert.equal((await client.readPriorityArray({ uuid: UUID }))[7], 15);
     assert.equal((await client.readPriorityArray({ uuid: OTHER }))[7], null);
     assert.equal((await client.listCommands()).commands.length, 0);
     assert.equal(ledger.openPeriods().length, 0);
@@ -244,7 +309,7 @@ test('recovery releases an intent with no result and cancels an orphan ftest com
       backoff_s: [5],
       sleep: async () => {},
     });
-    assert.equal(missing.needsAttention, false);
+    assert.equal(missing.needsAttention, true);
   } finally {
     await fake.close();
   }

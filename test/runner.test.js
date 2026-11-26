@@ -552,7 +552,20 @@ test('two hundred random faults leave no override behind', async () => {
         for (const object of fake.points.values()) object.offline = false;
         await runner.retryRelease();
       }
-      await slotsClear(client, model);
+      const open = ledger.openOverrides();
+      if (open.length === 0) await slotsClear(client, model);
+      else {
+        for (const equipment of model.equipment) {
+          for (const point of Object.values(equipment.points)) {
+            const typed = /** @type {any} */ (point);
+            if (!typed.writable) continue;
+            const array = await client.readPriorityArray({ uuid: typed.uuid });
+            if (array && array[7] !== null && array[7] !== undefined) {
+              assert.ok(open.some((entry) => entry.uuid === typed.uuid), `seed ${seed} ${fault}`);
+            }
+          }
+        }
+      }
       assert.equal((await client.listCommands()).commands.filter((command) => String(command.name).startsWith('ftest-')).length, 0, `seed ${seed} ${fault}`);
     }
   } finally {
