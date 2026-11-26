@@ -67,6 +67,8 @@ test('admin actions validate, discover, start, abort, and acknowledge', async ()
     assert.equal(writes, 0);
     const started = await adminAction(session, 'start', { confirm_live: true, run_id: 'run_operator' });
     assert.equal(started.state, 'BASELINE');
+    const held = await adminAction(session, 'start', { confirm_live: true });
+    assert.equal(held.code, 'run_active');
     const view = await adminAction(session, 'status');
     assert.equal(view.run_id, 'run_operator');
     assert.ok(session.runner);
