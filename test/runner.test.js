@@ -574,6 +574,19 @@ test('two hundred random faults leave no override behind', async () => {
   }
 });
 
+test('an old device timestamp trips stale data', async () => {
+  const rig = await world({ config: { limits: { max_sample_age_s: 30, max_tick_gap_s: 3600 } } });
+  try {
+    const old = new Date(rig.clock.now() - 120000).toISOString();
+    for (const object of rig.fake.points.values()) object.sampleTs = old;
+    await rig.runner.start('aged');
+    await rig.runner.tick();
+    assert.equal(rig.runner.state.reason, 'interlock:stale_data');
+  } finally {
+    await rig.fake.close();
+  }
+});
+
 test('imperial readings trip the SI interlocks', async () => {
   /** @type {{ close: () => Promise<void> }[]} */
   const opened = [];

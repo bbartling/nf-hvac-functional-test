@@ -29,8 +29,10 @@ class DeviceObject {
     this.ignoreWrites = false;
     /** @type {Record<string, unknown>} */
     this.attrs = {};
-    /** @type {number | undefined} */
-    this.period = undefined;
+  /** @type {number | undefined} */
+  this.period = undefined;
+  /** @type {string | undefined} */
+  this.sampleTs = undefined;
   }
 
   presentValue() {

@@ -10,11 +10,11 @@ const config = applyDefaults({ version: 1, limits: { max_sample_age_s: 30 } });
 const memory = { outOfBandSince: null, staleStrikes: 0 };
 
 /**
- * @param {Record<string, number | boolean>} values
+ * @param {Record<string, number | boolean | string>} values
  * @param {number} [age]
  */
 function readings(values, age = 0) {
-  /** @type {Record<string, { value: number | boolean, age_s: number }>} */
+  /** @type {Record<string, { value: number | boolean | string, age_s: number }>} */
   const out = {};
   for (const [role, value] of Object.entries(values)) out[role] = { value, age_s: age };
   return out;
@@ -34,6 +34,10 @@ test('each interlock trips and a fresh sample clears the stale streak', () => {
   assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: false }), memory, 0).trip, 'fan_status_lost');
   assert.equal(evaluateInterlocks(config, readings({ freeze_protection_status: true }), memory, 0).trip, 'freeze_protection');
   assert.equal(evaluateInterlocks(config, readings({ smoke_alarm_status: true }), memory, 0).trip, 'smoke_alarm');
+  assert.equal(evaluateInterlocks(config, readings({ freeze_protection_status: 1 }), memory, 0).trip, 'freeze_protection');
+  assert.equal(evaluateInterlocks(config, readings({ smoke_alarm_status: 'active' }), memory, 0).trip, 'smoke_alarm');
+  assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: 0 }), memory, 0).trip, 'fan_status_lost');
+  assert.equal(evaluateInterlocks(config, readings({ supply_fan_run_status: 'inactive' }), memory, 0).trip, 'fan_status_lost');
 
   const first = evaluateInterlocks(config, readings({ zone_air_temperature: 30 }), memory, 0);
   assert.equal(first.trip, null);

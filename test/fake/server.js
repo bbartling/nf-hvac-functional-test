@@ -209,7 +209,7 @@ function createFake(options = {}) {
       results.push({
         point: read.point,
         scalar: value === null || value === undefined ? '' : String(value),
-        ts: new Date(clock.now()).toISOString(),
+        ts: object.sampleTs || new Date(clock.now()).toISOString(),
       });
     }
     return { results, errors };
