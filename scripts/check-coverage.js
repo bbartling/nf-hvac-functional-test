@@ -30,6 +30,8 @@ const ALWAYS = [
   'lib/plan.js',
   'lib/nf/client.js',
   'lib/nf/duration.js',
+  'lib/run_seq.js',
+  'lib/manifest.js',
 ];
 
 const WHEN_PRESENT = [
