@@ -11,6 +11,6 @@ test('duration strings cover seconds, minutes, hours, and rejection', () => {
   assert.equal(parseDurationMs('250ms'), 250);
   assert.equal(parseDurationMs('2m'), 120000);
   assert.equal(parseDurationMs('1h'), 3600000);
-  assert.equal(Number.isNaN(parseDurationMs(12)), true);
+  assert.equal(Number.isNaN(parseDurationMs(/** @type {any} */ (12))), true);
   assert.equal(Number.isNaN(parseDurationMs('soon')), true);
 });
