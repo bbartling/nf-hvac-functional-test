@@ -1,5 +1,8 @@
 {
-  "name": "admin",
-  "entry": "hooks/admin.js",
-  "mode": "MODE_ON_REQUEST"
+  "hook": {
+    "name": "admin",
+    "entryPoint": "hooks/admin.js",
+    "mode": "MODE_ON_REQUEST",
+    "invokeTimeout": "8s"
+  }
 }

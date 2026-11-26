@@ -10,13 +10,24 @@ let signalsBound = false;
  * NF calls this with the applications SDK. The SDK is not required at load time.
  * @param {any} sdk
  */
-async function onTick(sdk) {
+async function onTick(ctx) {
+  const sdk = ctx && ctx.sdk ? ctx.sdk : (ctx || {});
+  if (ctx && Array.isArray(ctx.globalVariables)) sdk.globalVariables = ctx.globalVariables;
   if (!signalsBound) {
     bindRelease(sdk, () => {
-      if (session.runner && typeof session.runner.abort === 'function') {
-        session.runner.abort();
-      }
+      if (session.runner && typeof session.runner.abort === 'function') return session.runner.abort();
+      return undefined;
     });
+    if (typeof process.once === 'function') {
+      process.once('SIGTERM', () => {
+        const pending = session.runner && typeof session.runner.abort === 'function'
+          ? session.runner.abort()
+          : Promise.resolve();
+        const timer = setTimeout(() => {}, 2000);
+        if (typeof timer.unref === 'function') timer.unref();
+        Promise.race([Promise.resolve(pending), new Promise((resolve) => setTimeout(resolve, 2000))]).catch(() => {});
+      });
+    }
     signalsBound = true;
   }
   return tick(sdk, session);

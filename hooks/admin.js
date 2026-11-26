@@ -9,8 +9,9 @@ let session = createSession();
  * Operator actions. Arguments arrive as strings.
  * @param {any} sdk
  */
-async function onRequest(sdk) {
-  const args = sdk.args || {};
+async function onRequest(ctx) {
+  const sdk = ctx && ctx.sdk ? ctx.sdk : (ctx || {});
+  const args = (ctx && ctx.args) || sdk.args || {};
   const action = String(args.action || '');
   let payload = {};
   if (typeof args.payload === 'string' && args.payload) payload = JSON.parse(args.payload);
