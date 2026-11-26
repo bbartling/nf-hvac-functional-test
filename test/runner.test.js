@@ -795,6 +795,44 @@ test('stopping keepalive lets the lease revert the override', async () => {
   }
 });
 
+test('a live run refuses a command priority the service does not use', async () => {
+  const clock = new VirtualClock(Date.parse('2026-01-01T00:00:00Z'));
+  const fake = await createFake({ clock, commandPriority: 12 });
+  try {
+    const model = modelFor();
+    seed(model, fake);
+    const config = configFor();
+    const runner = new Runner({
+      client: new NfClient({ baseUrl: fake.baseUrl, sleep: async () => {} }),
+      ledger: new Ledger(fs.mkdtempSync(path.join(os.tmpdir(), 'prio-'))),
+      config,
+      plan: buildPlan(model, config),
+      model,
+      clock,
+      fanOnMs: 0,
+      confirmLive: true,
+      sleep: async () => {},
+    });
+    const state = await runner.start('run_priority');
+    assert.equal(state.phase, 'FAILED');
+    assert.equal(state.reason, 'priority_mismatch:12');
+    assert.equal((await runner.client.listCommands()).commands.length, 0);
+  } finally {
+    await fake.close();
+  }
+});
+
+test('a missing command priority does not invent the documented default', async () => {
+  const clock = new VirtualClock(Date.parse('2026-01-01T00:00:00Z'));
+  const hidden = await createFake({ clock, commandPriority: null });
+  try {
+    const client = new NfClient({ baseUrl: hidden.baseUrl, sleep: async () => {} });
+    assert.equal(await client.readCommandPriority(), null);
+  } finally {
+    await hidden.close();
+  }
+});
+
 test('a paced runner releases one batch per tick', async () => {
   const rig = await world({ config: { vav_test: { batch_size: 1, batch_delay_s: 2 }, write: { release_backoff_s: [3] } } });
   try {

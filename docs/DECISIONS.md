@@ -94,6 +94,10 @@ Point query, point upsert, and AddData are `POST /api/v1/point/query`, `/api/v1/
 
 A corrupt JSONL line is skipped wherever it sits, so one bad line cannot hide earlier overrides. After `CancelCommand`, a slot that is still occupied is relinquished with a NULL write at the same priority. That covers a zombie the command service did not clear. Other slots are not written. A `failed` ledger result removes that override; an `intent` with no result is treated as possibly written and is released.
 
+## D20. Command-service BACnet priority
+
+NF documents `BACNET_PRIORITY` as the command process environment variable (default 12) and exposes platform environment variables at `GET /api/v1/platform/env`. A live `nf_command` run reads `name=BACNET_PRIORITY` before the first command. An integer that differs from `write.bacnet_priority` fails the run with `priority_mismatch` and creates no command. A 404 or an empty variable list means that NF build did not expose the setting. The app does not assume 12 in that case. Per-write `priority` on `/api/v2/command/write` is still sent. It is not a substitute for the process-wide value, because the command service uses one priority for the process.
+
 ## Open questions
 
 Section 11 is still open. Nothing in it was verified against a running NF. `period_boost` stays off.

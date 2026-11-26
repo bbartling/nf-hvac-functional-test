@@ -24,6 +24,9 @@ function createFake(options = {}) {
   const names = new Map();
   let nextId = 1;
   const guardrails = options.guardrails !== false;
+  const commandPriority = Object.prototype.hasOwnProperty.call(options, 'commandPriority')
+    ? options.commandPriority
+    : 8;
   /** @type {{ count: number, status?: number, drop?: boolean }} */
   const fault = { count: 0 };
 
@@ -121,6 +124,7 @@ function createFake(options = {}) {
       if (req.method === 'POST' && path === '/api/v1/data') return send(res, 200, addData(body));
       if (req.method === 'POST' && path === '/api/v2/bacnet/read') return send(res, 200, bacnetRead(body));
       if (req.method === 'POST' && path === '/api/v2/bacnet/write') return send(res, 200, bacnetWrite(body));
+      if (req.method === 'GET' && path === '/api/v1/platform/env') return send(res, 200, environment(url));
       send(res, 404, { error: { code: 'not_found', message: path } });
     } catch (error) {
       const failed = /** @type {{ status?: number, code?: string, message: string }} */ (error);
@@ -132,6 +136,24 @@ function createFake(options = {}) {
   /**
    * @param {any} body
    */
+  /**
+   * @param {URL} url
+   */
+  function environment(url) {
+    const name = url.searchParams.get('name');
+    if (name !== 'BACNET_PRIORITY' || commandPriority === null || commandPriority === undefined) {
+      return { variables: [] };
+    }
+    return {
+      variables: [{
+        name: 'BACNET_PRIORITY',
+        section: 'command',
+        description: 'The default BACnet priority level to use for writes',
+        integer: String(commandPriority),
+      }],
+    };
+  }
+
   function startCommand(body) {
     only(body, ['name', 'duration']);
     const name = body.name;
