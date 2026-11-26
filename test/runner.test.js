@@ -795,6 +795,36 @@ test('stopping keepalive lets the lease revert the override', async () => {
   }
 });
 
+test('a paced runner releases one batch per tick', async () => {
+  const rig = await world({ config: { vav_test: { batch_size: 1, batch_delay_s: 2 }, write: { release_backoff_s: [3] } } });
+  try {
+    await rig.runner.start('paced');
+    await rig.runner.tick();
+    await rig.runner.tick();
+    rig.runner.paced = true;
+    let slept = false;
+    rig.runner.sleep = async () => { slept = true; };
+    const writer = rig.runner.writer;
+    const real = writer.release.bind(writer);
+    let calls = 0;
+    writer.release = async (entries) => {
+      calls += 1;
+      if (calls === 1) return { verified: [], failed: entries };
+      return real(entries);
+    };
+    const deferred = await rig.runner.release();
+    assert.equal(deferred, null);
+    assert.equal(slept, false);
+    assert.ok(rig.runner.nextRetryAt > rig.clock.now());
+    rig.clock.advance(4 * 1000);
+    const again = await rig.runner.release();
+    assert.equal(again, null);
+    assert.ok(rig.runner.nextRetryAt > rig.clock.now());
+  } finally {
+    await rig.fake.close();
+  }
+});
+
 /**
  * @param {number} seed
  */
