@@ -1,5 +1,7 @@
 # nf-hvac-functional-test
 
+> **This repository has moved** to [normalframework/nf-hvac-functional-test](https://github.com/normalframework/nf-hvac-functional-test). Please use that repo for issues, PRs, and new work.
+
 A Normal Framework (NF) app that runs automated HVAC functional tests on air handling units (AHUs), with an optional VAV max-cooling-airflow step. It overrides equipment into defined test states, captures higher-rate data tagged with run and step IDs, and always releases every override it wrote.
 
 > Status: v0.1 is implemented. Dry-run is the default. See [docs/INSTALL.md](docs/INSTALL.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
