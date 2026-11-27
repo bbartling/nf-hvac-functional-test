@@ -96,13 +96,17 @@ A corrupt JSONL line is skipped wherever it sits, so one bad line cannot hide ea
 
 ## D21. Role names come from the vendored Open-FDD vocabulary
 
-`vendor/roles/openfdd-roles.json` is the merged `roles/openfdd-roles.json` from open-fdd master. `schema/openfdd-roles.pin.json` records sha256 `43717ebc6187f678e3ee424b5e877f14dcd92e387bfdcedd7cbdb2f9b5eb85c1`. `lib/roles.js` keeps only the entries whose consumer is `nf-hvac-functional-test`. The id is the 223P role name. Haystack markers, including custom markers, are the binding and are read from that file. Wire units are the QUDT tokens (`DEG_C`, `PA`, `PERCENT` on a 0 to 100 scale, `PERCENT_RH`, `L-PER-SEC`). They are not fractions. Older names in the file's `aliases` still resolve.
+`vendor/roles/openfdd-roles.json` is `roles/openfdd-roles.json` from Open-FDD commit `49d44e23f8be7da7aa34d10ff67cd50dee13d51b` (vocabulary `1.1.0-draft.1`, file field `openfdd_release` `5.0.22`, status `draft`). `schema/openfdd-roles.pin.json` records that commit, sha256 `43717ebc6187f678e3ee424b5e877f14dcd92e387bfdcedd7cbdb2f9b5eb85c1`, and `pinned_to_tag: false`. The intended tag is `v5.0.22`. CI compares role names to that commit and fails if they differ. It does not fetch the tag. `lib/roles.js` keeps only the entries whose consumer is `nf-hvac-functional-test`. The id is the 223P role name. Haystack markers, including custom markers, are the binding and are read from that file. Wire units are the QUDT tokens (`DEG_C`, `PA`, `PERCENT` on a 0 to 100 scale, `PERCENT_RH`, `L-PER-SEC`). They are not fractions. Older names in the file's `aliases` still resolve.
 
 The RDF pin in `schema/shared-role-file.pin.json` is unchanged. That path is still the absent Turtle file. This JSON vocabulary does not turn the RDF adapter back on.
 
 ## D20. Command-service BACnet priority
 
 NF documents `BACNET_PRIORITY` as the command process environment variable (default 12) and exposes platform environment variables at `GET /api/v1/platform/env`. A live `nf_command` run reads `name=BACNET_PRIORITY` before the first command. An integer that differs from `write.bacnet_priority` fails the run with `priority_mismatch` and creates no command. A 404 or an empty variable list means that NF build did not expose the setting. The app does not assume 12 in that case. Per-write `priority` on `/api/v2/command/write` is still sent. It is not a substitute for the process-wide value, because the command service uses one priority for the process.
+
+## D22. The hook builds the plan from the site config
+
+`hooks/tick.js` and `hooks/admin.js` install a factory when a test has not injected one. The factory reads the `siteConfig` option, validates it, and builds the model from the configured point uuids. A binding that uses `query` is resolved with `equip_ref` (and optional markers). An empty query is refused. Discover uses the same rule. The runner is paced, and `vav_index`, `next_retry_at`, and `last_extend_at` are stored in the state file so a new process continues the same batch. `NF_BASE_URL` or the `nfBaseUrl` option selects the on-box API. The default is `http://127.0.0.1:8080`. `dry_run` still defaults to true.
 
 ## Open questions
 

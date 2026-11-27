@@ -29,7 +29,7 @@ npm run scan
 
 `dry_run` defaults to true. A live write also needs `confirm_live` on the start request. BACnet priority defaults to 8 and must be an integer from 3 to 16. Priorities 1 and 2 are rejected.
 
-Site policy is validated against `schema/site-config.schema.json`. See `examples/site-config.example.json`. Haystack role tag mappings live in `schema/haystack-role-map.json`. The shared 223P role file pin is `schema/shared-role-file.pin.json`. Offline validation of RDF models is a CI step (`rdflib==7.6.0`, `ontoenv==0.6.4`, `pyshifty==0.6.0`) and is not part of the NF hook. See `docs/superpowers/plans/2026-11-26-rdf-alignment.md`.
+Site policy is validated against `schema/site-config.schema.json`. See `examples/site-config.example.json`. Haystack role tag mappings are projected from `vendor/roles/openfdd-roles.json` (`schema/haystack-role-map.json` is that projection). The Open-FDD pin is `schema/openfdd-roles.pin.json`: version `1.1.0-draft.1`, commit `49d44e23f8be7da7aa34d10ff67cd50dee13d51b`, not the `v5.0.22` tag. `npm run roles:sync` fails if those role names drift. The shared Turtle role-file pin is `schema/shared-role-file.pin.json`. Offline validation of RDF models is a CI step (`rdflib==7.6.0`, `ontoenv==0.6.4`, `pyshifty==0.6.0`) and is not part of the NF hook. See `docs/superpowers/plans/2026-11-26-rdf-alignment.md`.
 
 ## Documents
 
@@ -39,6 +39,7 @@ Site policy is validated against `schema/site-config.schema.json`. See `examples
 - [docs/sql-examples.md](docs/sql-examples.md): label trends with manifest step windows.
 - [docs/DECISIONS.md](docs/DECISIONS.md): departures from the design.
 - [docs/CURSOR_PROMPT.md](docs/CURSOR_PROMPT.md): build prompt for a Cursor cloud agent (v0.1).
+- [docs/MOVE_TO_NF_ORG.md](docs/MOVE_TO_NF_ORG.md): checklist for the move to the normalframework org.
 
 ## License
 
