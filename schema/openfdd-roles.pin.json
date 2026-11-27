@@ -2,5 +2,13 @@
   "path": "vendor/roles/openfdd-roles.json",
   "sha256": "43717ebc6187f678e3ee424b5e877f14dcd92e387bfdcedd7cbdb2f9b5eb85c1",
   "version": "1.1.0-draft.1",
-  "source": "https://github.com/bbartling/open-fdd/blob/master/roles/openfdd-roles.json"
+  "pinned_to_tag": false,
+  "intended_tag": "v5.0.22",
+  "upstream": {
+    "repo": "bbartling/open-fdd",
+    "path": "roles/openfdd-roles.json",
+    "ref": "49d44e23f8be7da7aa34d10ff67cd50dee13d51b"
+  },
+  "source": "https://github.com/bbartling/open-fdd/blob/49d44e23f8be7da7aa34d10ff67cd50dee13d51b/roles/openfdd-roles.json",
+  "flip": "After the v5.0.22 tag exists, set pinned_to_tag to true, set upstream.ref to that exact tag, and set sha256 and version from the tagged file. Leave pinned_to_tag false until then. upstream.ref must stay a 40-character commit SHA while pinned_to_tag is false."
 }

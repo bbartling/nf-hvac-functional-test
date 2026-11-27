@@ -58,9 +58,12 @@ test('admin actions validate, discover, start, abort, and acknowledge', async ()
     assert.equal(valid.ok, true);
     const bad = await adminAction(session, 'config', { op: 'validate', config: { version: 1, write: { bacnet_priority: 1 } } });
     assert.equal(bad.ok, false);
-    const found = await adminAction(session, 'config', { op: 'discover' });
+    const found = await adminAction(session, 'config', { op: 'discover', query: { uuid: '00000000-0000-4000-8000-000000000301' } });
     assert.equal(found.writes, 0);
-    assert.ok(found.count >= 1);
+    assert.equal(found.count, 1);
+    const open = await adminAction(session, 'config', { op: 'discover' });
+    assert.equal(open.code, 'query_unbounded');
+    assert.equal(open.writes, 0);
     assert.equal(writes, 0);
     const refused = await adminAction(session, 'start', { live: true, confirm_live: false, run_id: 'run_no' });
     assert.equal(refused.code, 'confirm_live');

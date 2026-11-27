@@ -1,6 +1,7 @@
 'use strict';
 
 const { adminAction, createSession } = require('../lib/admin');
+const { ensureRuntime } = require('../lib/runtime');
 
 /** @type {any} */
 let session = createSession();
@@ -11,6 +12,7 @@ let session = createSession();
  */
 async function onRequest(ctx) {
   const sdk = ctx && ctx.sdk ? ctx.sdk : (ctx || {});
+  ensureRuntime(session, sdk);
   const args = (ctx && ctx.args) || sdk.args || {};
   const action = String(args.action || '');
   let payload = {};

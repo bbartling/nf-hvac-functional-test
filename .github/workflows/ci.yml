@@ -27,4 +27,5 @@ jobs:
       - run: npm run coverage
       - run: npm run validate:examples
       - run: npm run scan
+      - run: npm run roles:sync
       - run: npm audit --audit-level=high

@@ -27,6 +27,8 @@ const ALWAYS = [
   'lib/model/role_pin.js',
   'lib/model/writable.js',
   'lib/model/vocabulary.js',
+  'lib/roles_sync.js',
+  'lib/runtime.js',
   'lib/model/index.js',
   'lib/plan.js',
   'lib/nf/client.js',
